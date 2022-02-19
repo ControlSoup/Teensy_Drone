@@ -36,7 +36,7 @@ Servo m4;
 
 
 int state;
-long loop_timer;
+long loop_timer;  
 
   //Motors
   float full_t = 1500;
@@ -46,9 +46,8 @@ long loop_timer;
   
   //IMU
   int gyro_x, gyro_y, gyro_z;
-  long acc_x, acc_y, acc_z, acc_total_vector;
+  long acc_x, acc_y, acc_z;
   long gyro_x_cal, gyro_y_cal, gyro_z_cal;
-  long loop_timer;
   int temperature;
 
   //PID
@@ -89,7 +88,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   imu_update();
   pid_update();
-  
+  state_loop();
 
   m1.writeMicroseconds(m1_output);
   m2.writeMicroseconds(m1_output);
@@ -99,7 +98,7 @@ void loop() {
   loop_timer = micros();          //Reset the loop timer
 }
 
-void state(){
+void state_loop(){
   if (r_switch >1500){
     state =1;
   }
@@ -144,8 +143,7 @@ void state(){
 
 
 pid_update(){
-  
-  bool need_code // placeholder so code will still run
+  bool need_code; // placeholder so code will still run
   needs_code = true;
 }
 
@@ -160,16 +158,21 @@ imu_calibrate(){
   gyro_x_cal /= 2000;                                                  //Divide the gyro_x_cal variable by 2000 to get the avarage offset
   gyro_y_cal /= 2000;                                                  
   gyro_z_cal /= 2000;
-  bool needs_code // placeholder so code will still run    
+  bool needs_code; // placeholder so code will still run    
   need_code = true; //need to add offsets for accelerometer
 }
 
-imu_update(){
-  bool needs_code // placeholder so code will still run
+imu_startup(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true; //need i2c startup and selections of settings
 }
+  
+}
+imu_update(){
+  bool needs_code; // placeholder so code will still run
   needs_code = true; //need to decide what teensy library to use and implement quaternions
 }
 check_abort(){
-  bool needs_code // placeholder so code will still run
+  bool needs_code; // placeholder so code will still run
   needs_code = true;
 }
