@@ -5,44 +5,45 @@
 //Need aborts
 //Needs testing
 //////////////
-
+#include "PWM.hpp"
 #include <Wire.h>
 #include <Servo.h>
 #include <WireIMXRT.h>
 #include <WireKinetis.h>
 
 
-
 // I2c
-#define scl 19;
-#define sda 18;
+#define scl 19
+#define sda 18
 // Reciever
-#define ch1 37;
-#define ch2 38;
-#define ch3 33;
-#define ch4 28;
-#define ch5 29;
+#define ch1 37
+#define ch2 38
+#define ch3 33
+#define ch4 28
+#define ch5 29
 // Motors 
 Servo m1;
 Servo m2;
 Servo m3;
 Servo m4;
 // Misc
-#define led 23;
+#define led 23
 
 //Variables
 
 
 
 
-int state;
-long loop_timer;  
+int state =-1;
 
+  
   //Motors
   float full_t = 1500;
   float min_t = 1000;
   float m1_output,m2_output,m3_output,m4_output;
-  
+
+  //Receiver 
+  float r_roll,r_pitch,r_yaw,r_throttle,r_switch;
   
   //IMU
   int gyro_x, gyro_y, gyro_z;
@@ -51,15 +52,19 @@ long loop_timer;
   int temperature;
 
   //PID
-  float output_pitch,output_roll_pid,output_yaw_pid;
+  float output_pitch_pid,output_roll_pid,output_yaw_pid;
+
+  //timers
+  long prev_time_led,loop_timer;
+  float led_timer_test = 1000;
+
+
+
 
 void setup() {
   
   Serial.begin(57600);     
   delay(250);
-  while(!Serial);
-  Serial.begin(115200);
-  Serial1.begin(57600);
   Wire.begin();
   Wire.setSDA(18);
   Wire.setSCL(19);
@@ -82,7 +87,11 @@ void setup() {
   m3.writeMicroseconds(1000);
   m4.writeMicroseconds(1000);
   loop_timer = micros();                                               //Reset loop timer
+  prev_time_led = millis();
+  Serial.println("test");
 }
+
+
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -98,13 +107,24 @@ void loop() {
   loop_timer = micros();          //Reset the loop timer
 }
 
+
+void pid_update(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true;
+}
+
+
+void check_abort(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true;
+}
 void state_loop(){
-  if (r_switch >1500){
-    state =1;
-  }
-  else{
-    state = 0;
-  }
+//  if (r_switch >1500){
+//    state =1;
+//  }
+//  else{
+//    state = 0;
+//  }
   check_abort(); //Abort conditions
 
   if (state ==0){ //idle
@@ -116,40 +136,46 @@ void state_loop(){
   }
 
   else if (state ==1){ //Flight
-    if (throttle > 1800) throttle = 1800;
-    if (throttle < 1000) throttle = 1000;
-    call_pid(); //calls the pid values
-    m1_output =throttle+output_y_pid+output_pitch_pid+output_roll_pid;
-    m2_output =throttle-output_y_pid+output_pitch_pid-output_roll_pid;
-    m3_output =throttle+output_y_pid-output_pitch_pid-output_roll_pid;
-    m4_output =throttle-output_y_pid-output_pitch_pid+output_roll_pid;
+    if (r_throttle > 1800) r_throttle = 1800;
+    if (r_throttle < 1000) r_throttle = 1000;
+    pid_update(); //calls the pid values
+    m1_output =r_throttle+output_yaw_pid+output_pitch_pid+output_roll_pid;
+    m2_output =r_throttle-output_yaw_pid+output_pitch_pid-output_roll_pid;
+    m3_output =r_throttle+output_yaw_pid-output_pitch_pid-output_roll_pid;
+    m4_output =r_throttle-output_yaw_pid-output_pitch_pid+output_roll_pid;
 
-    if (m1_output < mint) m1_output = min_t; //Keep the motors running.
-    if (m2_output < mint) m2_output = min_t;                                         
-    if (m3_output < mint) m3_output = min_t;                                         
-    if (m4_output < mint) m4_output = min_t;  
-
+    if (m1_output < min_t) m1_output = min_t; //Keep the motors running.
+    if (m2_output < min_t) m2_output = min_t;                                         
+    if (m3_output < min_t) m3_output = min_t;                                         
+    if (m4_output < min_t) m4_output = min_t;  
+  }
    
   else if (state == -1){ //testing
-    m1_output = throttle;
-    m2_output = throttle;
-    m3_output = throttle;
-    m4_output = throttle;
+    m1_output = r_throttle;
+    m2_output = r_throttle;
+    m3_output = r_throttle;
+    m4_output = r_throttle;
+    Serial.println((millis()-prev_time_led));
+    if ((millis()-prev_time_led)>led_timer_test) digitalWrite(led,HIGH);
+    if ((millis()-prev_time_led)>led_timer_test*5){
+      digitalWrite(led,LOW);
+      prev_time_led = millis();
+    }
+    
+    
   }
 
-
 }
 
 
+//IMU
 
-pid_update(){
-  bool need_code; // placeholder so code will still run
-  needs_code = true;
+void imu_update(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true; //need to decide what teensy library to use and implement quaternions
 }
-
-imu_calibrate(){
+void imu_calibrate(){
   for (int cal_int = 0; cal_int < 2000 ; cal_int ++){                  //Run this code 2000 times                           
-    read_mpu_6050_data();                                              //Read the raw acc and gyro data from the MPU-6050
     gyro_x_cal += gyro_x;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
     gyro_y_cal += gyro_y;                                              
     gyro_z_cal += gyro_z;                                              
@@ -159,20 +185,10 @@ imu_calibrate(){
   gyro_y_cal /= 2000;                                                  
   gyro_z_cal /= 2000;
   bool needs_code; // placeholder so code will still run    
-  need_code = true; //need to add offsets for accelerometer
+  needs_code = true; //need to add offsets for accelerometer
 }
 
-imu_startup(){
+void imu_startup(){
   bool needs_code; // placeholder so code will still run
-  needs_code = true; //need i2c startup and selections of settings
-}
-  
-}
-imu_update(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true; //need to decide what teensy library to use and implement quaternions
-}
-check_abort(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true;
+  needs_code = true; //need i2c startup and selections of settings 
 }
