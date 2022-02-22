@@ -12,15 +12,16 @@
 #include <WireKinetis.h>
 
 
+
 // I2c
 #define scl 19
 #define sda 18
 // Reciever
-#define ch1 37
-#define ch2 38
-#define ch3 33
-#define ch4 28
-#define ch5 29
+PWM ch1(37);
+PWM ch2(38);
+PWM ch3(33);
+PWM ch4(28);
+PWM ch5(29);
 // Motors 
 Servo m1;
 Servo m2;
@@ -76,7 +77,12 @@ void setup() {
   pinMode(r_pitch,INPUT);
   pinMode(r_yaw,INPUT);
   pinMode(r_switch,INPUT);
-
+  //Reciever Setup
+  ch1.begin(true); // ch1 on pin 2 reading PWM HIGH duration
+  ch2.begin(true); // ch2 on pin 3 reading PWM HIGH duration
+  ch3.begin(true); // ch3 on pin 18 reading PWM HIGH duration
+  ch4.begin(true); // ch4 on pin 19 reading PWM HIGH duration
+  ch5.begin(true); // ch5 on pin 20 reading PWM HIGH duration
   // Motor pinouts 
   m1.attach(1);
   m2.attach(4);
@@ -93,9 +99,14 @@ void setup() {
 
 
 
+////////////////////////////////
+//Main Loop
+///////////////////////////////
+
 void loop() {
   // put your main code here, to run repeatedly:
   imu_update();
+  receiver_update();
   pid_update();
   state_loop();
 
@@ -108,16 +119,9 @@ void loop() {
 }
 
 
-void pid_update(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true;
-}
-
-
-void check_abort(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true;
-}
+////////////////////////////////
+//STATE LOOP
+///////////////////////////////
 void state_loop(){
 //  if (r_switch >1500){
 //    state =1;
@@ -155,7 +159,6 @@ void state_loop(){
     m2_output = r_throttle;
     m3_output = r_throttle;
     m4_output = r_throttle;
-    Serial.println((millis()-prev_time_led));
     if ((millis()-prev_time_led)>led_timer_test) digitalWrite(led,HIGH);
     if ((millis()-prev_time_led)>led_timer_test*5){
       digitalWrite(led,LOW);
@@ -168,7 +171,22 @@ void state_loop(){
 }
 
 
+
+
+void pid_update(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true;
+}
+
+
+void check_abort(){
+  bool needs_code; // placeholder so code will still run
+  needs_code = true;
+}
+
+////////////////////////////////
 //IMU
+///////////////////////////////
 
 void imu_update(){
   bool needs_code; // placeholder so code will still run
@@ -191,4 +209,17 @@ void imu_calibrate(){
 void imu_startup(){
   bool needs_code; // placeholder so code will still run
   needs_code = true; //need i2c startup and selections of settings 
+}
+
+////////////////////////////////
+//Receiver
+///////////////////////////////
+
+void receiver_update(){
+  r_pitch = ch1.getValue();
+  r_roll = ch2.getValue();
+  r_throttle = ch3.getValue();
+  r_yaw = ch4.getValue();
+  r_switch = ch5.getValue();
+  Serial.println(r_throttle);
 }
