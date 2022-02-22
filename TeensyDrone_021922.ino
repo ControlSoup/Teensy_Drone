@@ -86,7 +86,7 @@ void setup() {
   // Motor pinouts 
   m1.attach(1);
   m2.attach(4);
-  m3.attach(12);
+  m3.attach(10);
   m4.attach(26);
   m1.writeMicroseconds(1000); //set the motors to lowest power setting
   m2.writeMicroseconds(1000);
