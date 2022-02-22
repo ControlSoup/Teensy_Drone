@@ -58,6 +58,7 @@ int state =-1;
   //timers
   long prev_time_led,loop_timer;
   float led_timer_test = 1000;
+  float led_timer_flight =250;
 
 
 
@@ -73,10 +74,6 @@ void setup() {
   imu_startup();
   imu_calibrate();
   pinMode(led,OUTPUT);
-  pinMode(r_roll,INPUT);
-  pinMode(r_pitch,INPUT);
-  pinMode(r_yaw,INPUT);
-  pinMode(r_switch,INPUT);
   //Reciever Setup
   ch1.begin(true); // ch1 on pin 2 reading PWM HIGH duration
   ch2.begin(true); // ch2 on pin 3 reading PWM HIGH duration
@@ -123,12 +120,12 @@ void loop() {
 //STATE LOOP
 ///////////////////////////////
 void state_loop(){
-//  if (r_switch >1500){
-//    state =1;
-//  }
-//  else{
-//    state = 0;
-//  }
+  if (r_switch >1500){
+    state =1;
+  }
+  else{
+    state = 0;
+  }
   check_abort(); //Abort conditions
 
   if (state ==0){ //idle
@@ -152,6 +149,11 @@ void state_loop(){
     if (m2_output < min_t) m2_output = min_t;                                         
     if (m3_output < min_t) m3_output = min_t;                                         
     if (m4_output < min_t) m4_output = min_t;  
+    if ((millis()-prev_time_led)>led_timer_flight) digitalWrite(led,HIGH);
+    if ((millis()-prev_time_led)>led_timer_flight*2){
+      digitalWrite(led,LOW);
+      prev_time_led = millis();
+    }
   }
    
   else if (state == -1){ //testing
@@ -217,9 +219,18 @@ void imu_startup(){
 
 void receiver_update(){
   r_pitch = ch1.getValue();
+  if (r_pitch < 1000) r_pitch = 1000;
+  if (r_pitch > 2000) r_pitch = 2000;
   r_roll = ch2.getValue();
+  if (r_roll < 1000) r_roll = 1000;
+  if (r_roll > 2000) r_roll = 2000;
   r_throttle = ch3.getValue();
+  if (r_throttle < 1000) r_throttle = 1000;
+  if (r_throttle > 2000) r_throttle = 2000;
   r_yaw = ch4.getValue();
+  if (r_yaw < 1000) r_yaw = 1000;
+  if (r_yaw > 2000) r_yaw = 2000;
   r_switch = ch5.getValue();
-  Serial.println(r_throttle);
+  if (r_switch < 1000) r_switch = 1000;
+  if (r_switch > 2000) r_switch = 2000;
 }
