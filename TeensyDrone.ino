@@ -1,3 +1,5 @@
+#include <MPU6050.h>
+
 ///////////////
 //Need receiver implementation
 //Need IMU Implementation
@@ -10,12 +12,18 @@
 #include <Servo.h>
 #include <WireIMXRT.h>
 #include <WireKinetis.h>
+//IMU
+#include "I2Cdev.h"
+#include "MPU6050.h"
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    #include "Wire.h"
+#endif
 
 
 
-// I2c
-#define scl 19
-#define sda 18
+MPU6050 mpu;
+
+
 // Reciever
 PWM ch1(37);
 PWM ch2(38);
@@ -47,8 +55,9 @@ int state =-1;
   float r_roll,r_pitch,r_yaw,r_throttle,r_switch;
   
   //IMU
-  int gyro_x, gyro_y, gyro_z;
-  long acc_x, acc_y, acc_z;
+  int16_t  ax,ay,az,gx,gy,gz;
+  float acc_x, acc_y, acc_z;
+  float gyro_x,gyro_y,gyro_z;
   long gyro_x_cal, gyro_y_cal, gyro_z_cal;
   int temperature;
 
@@ -68,9 +77,6 @@ void setup() {
   Serial.begin(57600);     
   delay(250);
   Wire.begin();
-  Wire.setSDA(18);
-  Wire.setSCL(19);
-  Wire.setClock(400000);
   imu_startup();
   imu_calibrate();
   pinMode(led,OUTPUT);
@@ -191,9 +197,17 @@ void check_abort(){
 ///////////////////////////////
 
 void imu_update(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true; //need to decide what teensy library to use and implement quaternions
+  mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);   
+  acc_x = float(ax)/4096*9.81;
+  acc_y = float(ay)/4096*9.81;
+  acc_z = float(az)/4096*9.81;
+  gyro_x = float(gx);
+  gyro_y = float(gy);
+  gyro_z = float(gz);
+  Serial.println(gx);
 }
+
+
 void imu_calibrate(){
   for (int cal_int = 0; cal_int < 2000 ; cal_int ++){                  //Run this code 2000 times                           
     gyro_x_cal += gyro_x;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
@@ -209,8 +223,15 @@ void imu_calibrate(){
 }
 
 void imu_startup(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true; //need i2c startup and selections of settings 
+  #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    Wire.begin();
+  #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+    Fastwire::setup(400, true);
+  #endif
+  
+  mpu.initialize();
+  mpu.setFullScaleAccelRange(2);
+  mpu.setFullScaleGyroRange(1);
 }
 
 ////////////////////////////////
