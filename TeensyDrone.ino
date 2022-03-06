@@ -62,14 +62,14 @@ int state =-1;
   float Cb2i[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i_dot[3][3];
   float gx_cal, gy_cal, gz_cal;
-  float pitch;
+  float g_pitch,g_roll,g_yaw;
   int temperature;
 
   //PID
   float output_pitch_pid,output_roll_pid,output_yaw_pid;
 
   //timers
-  float prev_time_led,loop_timer,current_t,dt;
+  float prev_time_led,loop_timer,current_t,dt,data_time,start_time;
   float led_timer_test = 1000;
   float led_timer_flight =250;
 
@@ -77,6 +77,7 @@ int state =-1;
   //magic numbers
   const float deg2rad = 0.01745327777;
   const float g2ms2 = 9.8055;
+  const float rad2deg = 1/deg2rad;
 
 
 void setup() {
@@ -102,9 +103,9 @@ void setup() {
   m2.writeMicroseconds(1000);
   m3.writeMicroseconds(1000);
   m4.writeMicroseconds(1000);
-  current_t = micros();                                               //Reset loop timer
+  loop_timer = micros();                                               //Reset loop timer
   prev_time_led = millis();
-  Serial.println("Starting");
+  start_time = prev_time_led;
 }
 
 
@@ -130,7 +131,7 @@ void loop() {
   current_t = micros();
   dt = (current_t - loop_timer)/1000000;
   loop_timer = micros();          //Reset the loop timer
-  
+  data_time = (millis()-start_time)/1000;
   
   
 }
@@ -205,58 +206,76 @@ void check_abort(){
 ////////////////////////////////
 //IMU
 ///////////////////////////////
+float test;
+void imu_update(){
+  //Read Raw data 
+ 
+  mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);  //magical i2c library shit that i dont understand
+  acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
+  acc[1] = float(ay)/4096*g2ms2;
+  acc[2] = float(az)/4096*g2ms2;
+  gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
+  gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
+  gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
+  test += gyro[1]*dt*rad2deg;
+  //DCM Attitude Estimate
+    //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
+    
+    //scew_sym[0][0] =0
+    scew_sym[0][1] = -gyro[2];
+    scew_sym[0][2] = gyro[1];
+    
+    scew_sym[1][0] = gyro[2];
+    //scew_sym[1][1] =0;
+    scew_sym[1][2] = -gyro[0];
+    
+    scew_sym[2][0] = -gyro[1];
+    scew_sym[2][1] = -gyro[0];
+    //scew_sym[2][2] =0;
+    
+    //DCM_rate from body to inertial frame (matrix multiplication) 
+    Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
+    Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
+    Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
 
-  void imu_update(){
-    //Read Raw data 
-    mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);  //magical i2c library shit that i dont understand
-    acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
-    acc[1] = float(ay)/4096*g2ms2;
-    acc[2] = float(az)/4096*g2ms2;
-    gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
-    gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
-    gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
-    //DCM Attitude Estimate
-      //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
-      
-      //scew_sym[0][0] =0
-      scew_sym[0][1] = -gyro[2]
-      scew_sym[0][2] = gyro[1]
-      
-      scew_sym[1][0] = gyro[2]
-      //scew_sym[1][1] =0
-      scew_sym[1][2] = -gyro[0]
-      
-      scew_sym[2][0] = -gyro[1]
-      scew_sym[2][1] = -gyro[0]
-      //scew_sym[2][2] =0
-      
-      //DCM_rate from body to inertial frame (matrix multiplication) 
-      Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
-      Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
-      Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
-  
-      Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
-      Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
-      Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
-      
-      Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
-      Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
-      Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
-      
-      // DCM Attitude Estimates
-  
-      Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
-      Cb2i[1][0] += Cb2i_dot[1][0] *dt; 
-      Cb2i[2][0] += Cb2i_dot[2][0] *dt; 
-      Cb2i[0][1] += Cb2i_dot[0][1] *dt; 
-      Cb2i[1][1] += Cb2i_dot[1][1] *dt; 
-      Cb2i[2][1] += Cb2i_dot[2][1] *dt; 
-      Cb2i[0][2] += Cb2i_dot[0][2] *dt; 
-      Cb2i[1][2] += Cb2i_dot[1][2] *dt; 
-      Cb2i[2][2] += Cb2i_dot[2][2] *dt; 
-      
-      
-  }
+    Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
+    Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
+    Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
+    
+    Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
+    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
+    Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
+    
+    // DCM Attitude Estimates
+
+    Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
+    Cb2i[1][0] += Cb2i_dot[1][0] *dt; 
+    Cb2i[2][0] += Cb2i_dot[2][0] *dt; 
+    Cb2i[0][1] += Cb2i_dot[0][1] *dt; 
+    Cb2i[1][1] += Cb2i_dot[1][1] *dt; 
+    Cb2i[2][1] += Cb2i_dot[2][1] *dt; 
+    Cb2i[0][2] += Cb2i_dot[0][2] *dt; 
+    Cb2i[1][2] += Cb2i_dot[1][2] *dt; 
+    Cb2i[2][2] += Cb2i_dot[2][2] *dt; 
+
+    //DCM to euler pg 4-9
+
+    g_roll = atan(-Cb2i[2][0]/(1-(Cb2i[2][0]*Cb2i[2][0])))*rad2deg;
+    
+    if (abs(Cb2i[2][0] < 0.999)){
+      g_pitch = atan(Cb2i[2][1]/Cb2i[2][2])*rad2deg;
+      g_yaw = atan(Cb2i[1][0]/Cb2i[0][0])*rad2deg;
+    }
+    Serial.print(g_pitch);
+    Serial.print(" ");
+    Serial.print(g_roll);
+    Serial.print(" ");
+    Serial.println(g_yaw);
+   
+        
+    
+    
+}
 
 void imu_calibrate(){
   
@@ -271,8 +290,6 @@ void imu_calibrate(){
   gx_cal /= n;                                                  //Divide the gyro_x_cal variable by n to get the avarage offset
   gy_cal /= n;                                                  
   gz_cal /= n;
-  Serial.print(" cal = ");
-  Serial.println(gx_cal);
 }
 
 void imu_startup(){
