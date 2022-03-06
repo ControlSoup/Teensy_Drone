@@ -206,57 +206,57 @@ void check_abort(){
 //IMU
 ///////////////////////////////
 
-void imu_update(){
-  //Read Raw data 
-  mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);  //magical i2c library shit that i dont understand
-  acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
-  acc[1] = float(ay)/4096*g2ms2;
-  acc[2] = float(az)/4096*g2ms2;
-  gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
-  gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
-  gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
-  //DCM Attitude Estimate
-    //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
-    
-    //scew_sym[0][0] =0
-    scew_sym[0][1] = -gyro[2]
-    scew_sym[0][2] = gyro[1]
-    
-    scew_sym[1][0] = gyro[2]
-    //scew_sym[1][1] =0
-    scew_sym[1][2] = -gyro[0]
-    
-    scew_sym[2][0] = -gyro[1]
-    scew_sym[2][1] = -gyro[0]
-    //scew_sym[2][2] =0
-    
-    //DCM_rate from body to inertial frame (matrix multiplication) this could be faster if the product of 0's from scew symtric was not computed every time
-    Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
-    Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
-    Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
-
-    Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
-    Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
-    Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
-    
-    Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
-    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
-    Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
-    
-    // DCM Attitude Estimates
-
-    Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
-    Cb2i[1][0] += Cb2i[1][0] *dt; 
-    Cb2i[2][0] += Cb2i[2][0] *dt; 
-    Cb2i[0][1] += Cb2i[0][1] *dt; 
-    Cb2i[1][1] += Cb2i[1][1] *dt; 
-    Cb2i[2][1] += Cb2i[2][1] *dt; 
-    Cb2i[0][2] += Cb2i[0][2] *dt; 
-    Cb2i[1][2] += Cb2i[1][2] *dt; 
-    Cb2i[2][2] += Cb2i[2][2] *dt; 
-    
-    
-}
+  void imu_update(){
+    //Read Raw data 
+    mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);  //magical i2c library shit that i dont understand
+    acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
+    acc[1] = float(ay)/4096*g2ms2;
+    acc[2] = float(az)/4096*g2ms2;
+    gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
+    gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
+    gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
+    //DCM Attitude Estimate
+      //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
+      
+      //scew_sym[0][0] =0
+      scew_sym[0][1] = -gyro[2]
+      scew_sym[0][2] = gyro[1]
+      
+      scew_sym[1][0] = gyro[2]
+      //scew_sym[1][1] =0
+      scew_sym[1][2] = -gyro[0]
+      
+      scew_sym[2][0] = -gyro[1]
+      scew_sym[2][1] = -gyro[0]
+      //scew_sym[2][2] =0
+      
+      //DCM_rate from body to inertial frame (matrix multiplication) 
+      Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
+      Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
+      Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
+  
+      Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
+      Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
+      Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
+      
+      Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
+      Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
+      Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
+      
+      // DCM Attitude Estimates
+  
+      Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
+      Cb2i[1][0] += Cb2i_dot[1][0] *dt; 
+      Cb2i[2][0] += Cb2i_dot[2][0] *dt; 
+      Cb2i[0][1] += Cb2i_dot[0][1] *dt; 
+      Cb2i[1][1] += Cb2i_dot[1][1] *dt; 
+      Cb2i[2][1] += Cb2i_dot[2][1] *dt; 
+      Cb2i[0][2] += Cb2i_dot[0][2] *dt; 
+      Cb2i[1][2] += Cb2i_dot[1][2] *dt; 
+      Cb2i[2][2] += Cb2i_dot[2][2] *dt; 
+      
+      
+  }
 
 void imu_calibrate(){
   
