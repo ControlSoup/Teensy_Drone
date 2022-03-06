@@ -56,20 +56,27 @@ int state =-1;
   
   //IMU
   int16_t  ax,ay,az,gx,gy,gz;
-  float acc_x, acc_y, acc_z;
-  float gyro_x,gyro_y,gyro_z;
-  long gyro_x_cal, gyro_y_cal, gyro_z_cal;
+  float acc[3];
+  float gyro[3];
+  float scew_sym[3][3]={{0,0,0},{0,0,0},{0,0,0}};
+  float Cb2i[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
+  float Cb2i_dot[3][3];
+  float gx_cal, gy_cal, gz_cal;
+  float pitch;
   int temperature;
 
   //PID
   float output_pitch_pid,output_roll_pid,output_yaw_pid;
 
   //timers
-  long prev_time_led,loop_timer;
+  float prev_time_led,loop_timer,current_t,dt;
   float led_timer_test = 1000;
   float led_timer_flight =250;
 
 
+  //magic numbers
+  const float deg2rad = 0.01745327777;
+  const float g2ms2 = 9.8055;
 
 
 void setup() {
@@ -95,9 +102,9 @@ void setup() {
   m2.writeMicroseconds(1000);
   m3.writeMicroseconds(1000);
   m4.writeMicroseconds(1000);
-  loop_timer = micros();                                               //Reset loop timer
+  current_t = micros();                                               //Reset loop timer
   prev_time_led = millis();
-  Serial.println("test");
+  Serial.println("Starting");
 }
 
 
@@ -117,8 +124,15 @@ void loop() {
   m2.writeMicroseconds(m2_output);
   m3.writeMicroseconds(m3_output);
   m4.writeMicroseconds(m4_output);
-  while(micros() - loop_timer < 4000);                                 //Wait until the loop_timer reaches 4000us (250Hz) before starting the next loop
+
+  
+  while(micros() - loop_timer < 4000); //Wait until the loop_timer reaches 4000us (250Hz) before starting the next loop  
+  current_t = micros();
+  dt = (current_t - loop_timer)/1000000;
   loop_timer = micros();          //Reset the loop timer
+  
+  
+  
 }
 
 
@@ -182,14 +196,10 @@ void state_loop(){
 
 
 void pid_update(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true;
 }
 
 
 void check_abort(){
-  bool needs_code; // placeholder so code will still run
-  needs_code = true;
 }
 
 ////////////////////////////////
@@ -197,29 +207,72 @@ void check_abort(){
 ///////////////////////////////
 
 void imu_update(){
-  mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);   
-  acc_x = float(ax)/4096*9.81;
-  acc_y = float(ay)/4096*9.81;
-  acc_z = float(az)/4096*9.81;
-  gyro_x = float(gx);
-  gyro_y = float(gy);
-  gyro_z = float(gz);
-  Serial.println(gx);
+  //Read Raw data 
+  mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);  //magical i2c library shit that i dont understand
+  acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
+  acc[1] = float(ay)/4096*g2ms2;
+  acc[2] = float(az)/4096*g2ms2;
+  gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
+  gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
+  gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
+  //DCM Attitude Estimate
+    //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
+    
+    //scew_sym[0][0] =0
+    scew_sym[0][1] = -gyro[2]
+    scew_sym[0][2] = gyro[1]
+    
+    scew_sym[1][0] = gyro[2]
+    //scew_sym[1][1] =0
+    scew_sym[1][2] = -gyro[0]
+    
+    scew_sym[2][0] = -gyro[1]
+    scew_sym[2][1] = -gyro[0]
+    //scew_sym[2][2] =0
+    
+    //DCM_rate from body to inertial frame (matrix multiplication) this could be faster if the product of 0's from scew symtric was not computed every time
+    Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
+    Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
+    Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
+
+    Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
+    Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
+    Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
+    
+    Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
+    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
+    Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
+    
+    // DCM Attitude Estimates
+
+    Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
+    Cb2i[1][0] += Cb2i[1][0] *dt; 
+    Cb2i[2][0] += Cb2i[2][0] *dt; 
+    Cb2i[0][1] += Cb2i[0][1] *dt; 
+    Cb2i[1][1] += Cb2i[1][1] *dt; 
+    Cb2i[2][1] += Cb2i[2][1] *dt; 
+    Cb2i[0][2] += Cb2i[0][2] *dt; 
+    Cb2i[1][2] += Cb2i[1][2] *dt; 
+    Cb2i[2][2] += Cb2i[2][2] *dt; 
+    
+    
 }
 
-
 void imu_calibrate(){
-  for (int cal_int = 0; cal_int < 2000 ; cal_int ++){                  //Run this code 2000 times                           
-    gyro_x_cal += gyro_x;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
-    gyro_y_cal += gyro_y;                                              
-    gyro_z_cal += gyro_z;                                              
-    delay(3);                                                          //Delay 3us to simulate the 250Hz program loop
+  
+  int n = 2000;
+  for (int cal_int = 0; cal_int < n ; cal_int ++){                  //Run this code n times 
+    mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);                           
+    gx_cal += gx;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
+    gy_cal += gy;                                              
+    gz_cal += gz;                                              
+    delay(4);                                                         //(250hz)
   }
-  gyro_x_cal /= 2000;                                                  //Divide the gyro_x_cal variable by 2000 to get the avarage offset
-  gyro_y_cal /= 2000;                                                  
-  gyro_z_cal /= 2000;
-  bool needs_code; // placeholder so code will still run    
-  needs_code = true; //need to add offsets for accelerometer
+  gx_cal /= n;                                                  //Divide the gyro_x_cal variable by n to get the avarage offset
+  gy_cal /= n;                                                  
+  gz_cal /= n;
+  Serial.print(" cal = ");
+  Serial.println(gx_cal);
 }
 
 void imu_startup(){
