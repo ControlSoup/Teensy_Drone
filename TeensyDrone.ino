@@ -1,9 +1,9 @@
 #include <MPU6050.h>
 
 ///////////////
-//Need receiver implementation
-//Need IMU Implementation
-//Need PD controller for quat
+//Need DCM-> Euler
+//Need Filter
+//Need PID loops
 //Need aborts
 //Needs testing
 //////////////
