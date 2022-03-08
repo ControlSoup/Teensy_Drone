@@ -1,8 +1,7 @@
 #include <MPU6050.h>
 
 ///////////////
-//Need DCM-> Euler debug
-//NEW ERROR *!*  Control loop inside the state loop lags the teensy
+//Need DCM-> Euler
 //Need Filter
 //Need PID loops
 //Need aborts
@@ -63,14 +62,30 @@ int state =-1;
   float Cb2i[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i_dot[3][3];
   float gx_cal, gy_cal, gz_cal;
-  float pitch_error,roll_error,yaw_error;
   int temperature;
 
   //ControlLaw
-  float output_pitch_pid,output_roll_pid,output_yaw_pid;
+  
   float Cb2i_target[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i_error[3][3] = {{0,0,0},{0,0,0},{0,0,0}} ;
-
+  
+    //Yaw
+    float output_yaw,p_yaw,i_yaw,prev_yaw_error,yaw_error;
+      const float kp_yaw = 6;
+      const float ki_yaw = 0.01;
+    //Pitch
+    float output_pitch,p_pitch,i_pitch,d_pitch,prev_pitch_error,pitch_error;
+      const float kp_pitch = 1;
+      const float ki_pitch = 0.001;
+      const float kd_pitch = 10;
+    //Roll
+    float output_roll,p_roll,i_roll,d_roll,prev_roll_error,roll_error;
+      const float kp_roll = 1;
+      const float ki_roll = 0.001;
+      const float kd_roll = 10;
+    
+   
+ 
   //timers
   float prev_time_led,loop_timer,current_t,dt,data_time,start_time;
   float led_timer_test = 1000;
@@ -162,10 +177,10 @@ void state_loop(){
   else if (state ==1){ //Flight
     if (r_throttle > 1800) r_throttle = 1800;
     if (r_throttle < 1000) r_throttle = 1000;
-    m1_output =r_throttle+output_yaw_pid+output_pitch_pid+output_roll_pid;
-    m2_output =r_throttle-output_yaw_pid+output_pitch_pid-output_roll_pid;
-    m3_output =r_throttle+output_yaw_pid-output_pitch_pid-output_roll_pid;
-    m4_output =r_throttle-output_yaw_pid-output_pitch_pid+output_roll_pid;
+    m1_output =r_throttle+output_yaw+output_pitch+output_roll;
+    m2_output =r_throttle-output_yaw+output_pitch-output_roll;
+    m3_output =r_throttle+output_yaw+output_pitch-output_roll;
+    m4_output =r_throttle-output_yaw-output_pitch+output_roll;
 
     if (m1_output < min_t) m1_output = min_t; //Keep the motors running.
     if (m2_output < min_t) m2_output = min_t;                                         
@@ -225,7 +240,27 @@ void control_loop(){
     pitch_error =  pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]))-yaw_error ;
   }
 
-  //Control Law
+  //Attitude Control Law
+
+      //yaw
+        p_yaw= kp_yaw*yaw_error;
+        i_yaw += ki_yaw*yaw_error;
+        output_yaw = p_yaw + i_yaw ;
+      
+      //Pitch
+        p_pitch= kp_pitch*pitch_error;
+        i_pitch += ki_pitch*pitch_error;
+        d_pitch = kd_pitch*(prev_pitch_error - pitch_error);
+        prev_pitch_error = pitch_error;
+        output_pitch = p_pitch + i_pitch + d_pitch ;
+
+      //Roll (dont do a barrel roll)
+        p_roll= kp_roll*roll_error;
+        i_roll += ki_roll*roll_error;
+        d_roll = kd_roll*(prev_roll_error - roll_error);
+        prev_roll_error = roll_error;
+        output_roll = p_roll + i_roll + d_roll ;
+
   Serial.print(pitch_error*rad2deg);
   Serial.print(", ");
   Serial.print(roll_error*rad2deg);
@@ -256,7 +291,7 @@ void imu_update(){
   gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
   gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
   gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
-  test += gyro[1]*dt*rad2deg;
+
   //DCM Attitude Estimate
     //scew symetric based on Strap Down Analytics (Paul G. Savage) pg 3-52
     
