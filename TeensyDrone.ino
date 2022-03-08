@@ -62,11 +62,13 @@ int state =-1;
   float Cb2i[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i_dot[3][3];
   float gx_cal, gy_cal, gz_cal;
-  float g_pitch,g_roll,g_yaw;
+  float pitch_error,roll_error,yaw_error;
   int temperature;
 
-  //PID
+  //ControlLaw
   float output_pitch_pid,output_roll_pid,output_yaw_pid;
+  float Cb2i_target[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
+  float Cb2i_error[3][3] = {{0,0,0},{0,0,0},{0,0,0}} ;
 
   //timers
   float prev_time_led,loop_timer,current_t,dt,data_time,start_time;
@@ -78,7 +80,7 @@ int state =-1;
   const float deg2rad = 0.01745327777;
   const float g2ms2 = 9.8055;
   const float rad2deg = 1/deg2rad;
-
+  const float pi = 3.1415926;
 
 void setup() {
   
@@ -118,7 +120,6 @@ void loop() {
   // put your main code here, to run repeatedly:
   imu_update();
   receiver_update();
-  pid_update();
   state_loop();
 
   m1.writeMicroseconds(m1_output);
@@ -148,7 +149,7 @@ void state_loop(){
     state = 0;
   }
   check_abort(); //Abort conditions
-
+  
   if (state ==0){ //idle
     m1_output = 0;
     m2_output = 0;
@@ -160,7 +161,7 @@ void state_loop(){
   else if (state ==1){ //Flight
     if (r_throttle > 1800) r_throttle = 1800;
     if (r_throttle < 1000) r_throttle = 1000;
-    pid_update(); //calls the pid values
+    control_loop(); //calls the pid values
     m1_output =r_throttle+output_yaw_pid+output_pitch_pid+output_roll_pid;
     m2_output =r_throttle-output_yaw_pid+output_pitch_pid-output_roll_pid;
     m3_output =r_throttle+output_yaw_pid-output_pitch_pid-output_roll_pid;
@@ -178,6 +179,7 @@ void state_loop(){
   }
    
   else if (state == -1){ //testing
+    control_loop();
     m1_output = r_throttle;
     m2_output = r_throttle;
     m3_output = r_throttle;
@@ -196,8 +198,43 @@ void state_loop(){
 
 
 
-void pid_update(){
+void control_loop(){
+  //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
+  Cb2i_error[0][0] = Cb2i_target[0][0]*Cb2i[0][0]+Cb2i_target[0][1]*Cb2i[1][0]+Cb2i_target[0][2]*Cb2i[2][0];
+  Cb2i_error[1][0] = Cb2i_target[1][0]*Cb2i[0][0]+Cb2i_target[1][1]*Cb2i[1][0]+Cb2i_target[1][2]*Cb2i[2][0];
+  Cb2i_error[2][0] = Cb2i_target[2][0]*Cb2i[0][0]+Cb2i_target[2][1]*Cb2i[1][0]+Cb2i_target[2][2]*Cb2i[2][0];
+
+  Cb2i_error[0][1] = Cb2i_target[0][0]*Cb2i[0][1]+Cb2i_target[0][1]*Cb2i[1][1]+Cb2i_target[0][2]*Cb2i[2][1];
+  Cb2i_error[1][1] = Cb2i_target[1][0]*Cb2i[0][1]+Cb2i_target[1][1]*Cb2i[1][1]+Cb2i_target[1][2]*Cb2i[2][1];
+  Cb2i_error[2][1] = Cb2i_target[2][0]*Cb2i[0][1]+Cb2i_target[2][1]*Cb2i[1][1]+Cb2i_target[2][2]*Cb2i[2][1];
+  
+  Cb2i_error[0][2] = Cb2i_target[0][0]*Cb2i[0][2]+Cb2i_target[0][1]*Cb2i[1][2]+Cb2i_target[0][2]*Cb2i[2][2];
+  Cb2i_error[1][2] = Cb2i_target[1][0]*Cb2i[0][2]+Cb2i_target[1][2]*Cb2i[1][2]+Cb2i_target[1][2]*Cb2i[2][2];
+  Cb2i_error[2][2] = Cb2i_target[2][0]*Cb2i[0][2]+Cb2i_target[2][1]*Cb2i[1][2]+Cb2i_target[2][2]*Cb2i[2][2];
+  
+  //DCM to Euler
+  roll_error = atan(-Cb2i_error[2][0]/sqrt(1-(Cb2i_error[2][0]*Cb2i_error[2][0])));
+  if (abs(Cb2i_error[2][0]) <0.999){
+    pitch_error = atan(Cb2i_error[2][1]/Cb2i_error[2][2]);
+    yaw_error = atan(Cb2i_error[1][0]/Cb2i_error[0][0]);
+  }
+  if (Cb2i_error[2][0] <= - 0.999){
+    pitch_error = yaw_error - atan((Cb2i_error[1][2]-Cb2i_error[0][1])/(Cb2i_error[0][2]+Cb2i_error[1][1]));
+  }
+  if (Cb2i_error[2][0] >= 0.999){
+    pitch_error = yaw_error - pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]));
+  }
+
+  //Control Law
+  Serial.print(pitch_error);
+  Serial.print(" ");
+  Serial.print(roll_error);
+  Serial.print(" ");
+  Serial.println(yaw_error);
+  
+  
 }
+
 
 
 void check_abort(){
@@ -243,7 +280,7 @@ void imu_update(){
     Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
     
     Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
-    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][2]*scew_sym[1][2];
+    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][1]*scew_sym[1][2];
     Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
     
     // DCM Attitude Estimates
@@ -258,19 +295,7 @@ void imu_update(){
     Cb2i[1][2] += Cb2i_dot[1][2] *dt; 
     Cb2i[2][2] += Cb2i_dot[2][2] *dt; 
 
-    //DCM to euler pg 4-9
-
-    g_roll = atan(-Cb2i[2][0]/(1-(Cb2i[2][0]*Cb2i[2][0])))*rad2deg;
     
-    if (abs(Cb2i[2][0] < 0.999)){
-      g_pitch = atan(Cb2i[2][1]/Cb2i[2][2])*rad2deg;
-      g_yaw = atan(Cb2i[1][0]/Cb2i[0][0])*rad2deg;
-    }
-    Serial.print(g_pitch);
-    Serial.print(" ");
-    Serial.print(g_roll);
-    Serial.print(" ");
-    Serial.println(g_yaw);
    
         
     
