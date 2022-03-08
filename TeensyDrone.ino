@@ -1,7 +1,8 @@
 #include <MPU6050.h>
 
 ///////////////
-//Need DCM-> Euler
+//Need DCM-> Euler debug
+//NEW ERROR *!*  Control loop inside the state loop lags the teensy
 //Need Filter
 //Need PID loops
 //Need aborts
@@ -120,7 +121,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   imu_update();
   receiver_update();
-  state_loop();
+  control_loop();
 
   m1.writeMicroseconds(m1_output);
   m2.writeMicroseconds(m2_output);
@@ -161,7 +162,6 @@ void state_loop(){
   else if (state ==1){ //Flight
     if (r_throttle > 1800) r_throttle = 1800;
     if (r_throttle < 1000) r_throttle = 1000;
-    control_loop(); //calls the pid values
     m1_output =r_throttle+output_yaw_pid+output_pitch_pid+output_roll_pid;
     m2_output =r_throttle-output_yaw_pid+output_pitch_pid-output_roll_pid;
     m3_output =r_throttle+output_yaw_pid-output_pitch_pid-output_roll_pid;
@@ -222,15 +222,17 @@ void control_loop(){
     pitch_error = yaw_error - atan((Cb2i_error[1][2]-Cb2i_error[0][1])/(Cb2i_error[0][2]+Cb2i_error[1][1]));
   }
   if (Cb2i_error[2][0] >= 0.999){
-    pitch_error = yaw_error - pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]));
+    pitch_error =  pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]))-yaw_error ;
   }
 
   //Control Law
-  Serial.print(pitch_error);
-  Serial.print(" ");
-  Serial.print(roll_error);
-  Serial.print(" ");
-  Serial.println(yaw_error);
+  Serial.print(pitch_error*rad2deg);
+  Serial.print(", ");
+  Serial.print(roll_error*rad2deg);
+  Serial.print(", ");
+  Serial.print(yaw_error*rad2deg);
+  Serial.print(", ");
+  Serial.println(data_time);
   
   
 }
