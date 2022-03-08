@@ -1,5 +1,3 @@
-#include <MPU6050.h>
-
 ///////////////
 //Need Pid Values
 //!*! ERROR !*! State Loop with control loop in it crashes the teensy lol
@@ -7,6 +5,8 @@
 //Need aborts
 //Needs testing
 //////////////
+#include <MPU6050.h>
+
 #include "PWM.hpp"
 #include <Wire.h>
 #include <Servo.h>
@@ -215,17 +215,17 @@ void state_loop(){
 
 void control_loop(){
   //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
-  Cb2i_error[0][0] = Cb2i_target[0][0]*Cb2i[0][0]+Cb2i_target[0][1]*Cb2i[1][0]+Cb2i_target[0][2]*Cb2i[2][0];
-  Cb2i_error[1][0] = Cb2i_target[1][0]*Cb2i[0][0]+Cb2i_target[1][1]*Cb2i[1][0]+Cb2i_target[1][2]*Cb2i[2][0];
-  Cb2i_error[2][0] = Cb2i_target[2][0]*Cb2i[0][0]+Cb2i_target[2][1]*Cb2i[1][0]+Cb2i_target[2][2]*Cb2i[2][0];
+  Cb2i_error[0][0] = Cb2i_target[0][0]*Cb2i[0][0]+Cb2i_target[0][1]*Cb2i[0][1]+Cb2i_target[0][2]*Cb2i[0][2];
+  Cb2i_error[1][0] = Cb2i_target[1][0]*Cb2i[0][0]+Cb2i_target[1][1]*Cb2i[0][1]+Cb2i_target[1][2]*Cb2i[0][2];
+  Cb2i_error[2][0] = Cb2i_target[2][0]*Cb2i[0][0]+Cb2i_target[2][1]*Cb2i[0][1]+Cb2i_target[2][2]*Cb2i[0][2];
 
-  Cb2i_error[0][1] = Cb2i_target[0][0]*Cb2i[0][1]+Cb2i_target[0][1]*Cb2i[1][1]+Cb2i_target[0][2]*Cb2i[2][1];
-  Cb2i_error[1][1] = Cb2i_target[1][0]*Cb2i[0][1]+Cb2i_target[1][1]*Cb2i[1][1]+Cb2i_target[1][2]*Cb2i[2][1];
-  Cb2i_error[2][1] = Cb2i_target[2][0]*Cb2i[0][1]+Cb2i_target[2][1]*Cb2i[1][1]+Cb2i_target[2][2]*Cb2i[2][1];
+  Cb2i_error[0][1] = Cb2i_target[0][0]*Cb2i[1][0]+Cb2i_target[0][1]*Cb2i[1][1]+Cb2i_target[0][2]*Cb2i[1][2];
+  Cb2i_error[1][1] = Cb2i_target[1][0]*Cb2i[1][0]+Cb2i_target[1][1]*Cb2i[1][1]+Cb2i_target[1][2]*Cb2i[1][2];
+  Cb2i_error[2][1] = Cb2i_target[2][0]*Cb2i[1][0]+Cb2i_target[2][1]*Cb2i[1][1]+Cb2i_target[2][2]*Cb2i[1][2];
   
-  Cb2i_error[0][2] = Cb2i_target[0][0]*Cb2i[0][2]+Cb2i_target[0][1]*Cb2i[1][2]+Cb2i_target[0][2]*Cb2i[2][2];
-  Cb2i_error[1][2] = Cb2i_target[1][0]*Cb2i[0][2]+Cb2i_target[1][2]*Cb2i[1][2]+Cb2i_target[1][2]*Cb2i[2][2];
-  Cb2i_error[2][2] = Cb2i_target[2][0]*Cb2i[0][2]+Cb2i_target[2][1]*Cb2i[1][2]+Cb2i_target[2][2]*Cb2i[2][2];
+  Cb2i_error[0][2] = Cb2i_target[0][0]*Cb2i[2][0]+Cb2i_target[0][1]*Cb2i[2][1]+Cb2i_target[0][2]*Cb2i[2][2];
+  Cb2i_error[1][2] = Cb2i_target[1][0]*Cb2i[2][0]+Cb2i_target[1][2]*Cb2i[2][1]+Cb2i_target[1][2]*Cb2i[2][2];
+  Cb2i_error[2][2] = Cb2i_target[2][0]*Cb2i[2][0]+Cb2i_target[2][1]*Cb2i[2][1]+Cb2i_target[2][2]*Cb2i[2][2];
   
   //DCM to Euler
   roll_error = atan(-Cb2i_error[2][0]/sqrt(1-(Cb2i_error[2][0]*Cb2i_error[2][0])));
