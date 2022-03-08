@@ -1,9 +1,9 @@
 #include <MPU6050.h>
 
 ///////////////
-//Need DCM-> Euler
-//Need Filter
-//Need PID loops
+//Need Pid Values
+//!*! ERROR !*! State Loop with control loop in it crashes the teensy lol
+//Need Filter of some kind
 //Need aborts
 //Needs testing
 //////////////
