@@ -17,8 +17,8 @@ def stateDerivative(state_vector,input_vector,g=9.8055):
 
 def thrust(pwm):
     pwm_percent = (pwm-1000)/1000
-    max_motor_thrust = (470*2)/1000 #kilo/grams
-    return max_motor_thrust*pwm_percent*kg2n
+    max_motor_thrust = (470*2)/1000*kg2n #kilo/grams
+    return pwm_percent*max_motor_thrust
 
 # 4th Order Runge Kutta Calculation
 def RK4(x,u,dt):
@@ -35,7 +35,6 @@ def RK4(x,u,dt):
 
 
 
-
 #######
 # Magic Numbers
 in2m = 0.0254
@@ -44,16 +43,16 @@ kg2n= 9.8055
 # Vehicle Properties
 arm_length = 5 *in2m
 dt=0.002
-control_dt = 1/250
+
 sim_t = np.arange(0,100,dt)
 pwm_input = 1000
 
 #Inital State
-state_itt = np.zeros((len(sim_t),6))
+state_itt = np.zeros((len(sim_t),7))
 state = [0,0,0,0,0,0]
 
 #Control
-kp_alt = 0.2
+kp_alt = 1
 ki_alt = 0.001
 kd_alt = 0
 alt_i = 0
@@ -61,10 +60,13 @@ prev_i = 0
 prev_alt_error =0
 alt_output = 1000
 control_timer =0
+control_dt = 1/250
 #Data Log
 thrust_log = np.zeros(len(sim_t))
 alt_output_log = []
-control_log_time = []
+
+
+
 for i in range (0,len(sim_t)):
     #do a bunch of random voodo
     #get the hoodo
@@ -72,22 +74,17 @@ for i in range (0,len(sim_t)):
 
     if i-control_timer >= control_dt:
         #alltitude pid
-        alt_error = 10-state[1]
-        if alt_error > 10:
-            kp_alt = 3
+        alt_error = 0-state[1]
         alt_p = kp_alt*alt_error
         alt_i = prev_i + ki_alt*alt_error*dt
         prev_i = alt_i
         alt_d = kd_alt*(prev_alt_error - alt_error)/dt
-        prev_alt_error = alt_d
-        alt_output = alt_p+alt_i+alt_d
+        prev_alt_error = alt_error
+        alt_output = alt_p+alt_i+alt_d+1436.31415926
+
         alt_output_log.append(alt_output)
-        if alt_output > 2000:
-            alt_output = 2000
-        elif alt_output < 1000:
-            alt_output = 1000
-        control_log_time.append(i)
         control_timer = i
+
 
 
 
@@ -98,14 +95,15 @@ for i in range (0,len(sim_t)):
     if i>0:
         state = state_itt[i-1][:]
 
-    state_itt[i][:] = RK4(np.array(state),np.array([m1_force+m2_force,M]),dt)
+    state_itt[i][0:6] = RK4(np.array(state[0:6]),np.array([m1_force+m2_force,M]),dt)
+    state_itt[i][6] = alt_output
 
 
 
 
-plt.plot(control_log_time, alt_output_log, 'r--', label="pid_output")
+plt.plot(state_itt[:,1], state_itt[:,6], 'r--', label="pid_output")
 plt.legend()
-plt.xlabel('Time(s)')
+plt.xlabel('Y Position (m)')
 plt.ylabel('Pid Output')
 plt.show()
 
@@ -123,4 +121,3 @@ plt.legend()
 plt.xlabel('Time(s)')
 plt.ylabel('Velocity(m/s)')
 plt.show()
-
