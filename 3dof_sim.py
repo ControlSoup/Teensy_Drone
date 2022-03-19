@@ -1,11 +1,31 @@
 # Change Log
-#Added pid loop for pitch needs tuning and variable gains
-#Kinda getting somwhere maybe?
+#Added Pitch Controller, implemented noise to the control loop and tuned some of the pid loops
+#Added a imu model start
+#Saturated controller and somewhat of an imu model
 
 from scipy import interpolate
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
+#Rough cut of an imu model
+def imu_model(state_vector,integration_values,dt):
+    [x, y, x_dot, y_dot, theta, theta_dot] = state_vector
+    [prev_x_dot,prev_y_dot,total_drift] = integration_values
+    #Barometer + Sonar + GPS eventually?
+    baro_noise = 0
+    baro_read = y + baro_noise
+
+    #Accelerometer
+    acc_read = [(prev_x_dot-x_dot)/dt,(prev_y_dot-y_dot)/dt]
+
+    #Gyro
+    drift_slope = 0.001
+    total_drift = total_drift + drift_slope
+    gyro_read = theta_dot + gyro_noise + (total_drift)
+
+    return [[baro_read,acc_read,gyro_read],[prev_x_dot,prev_y_dot,total_drift]]
 
 
 def dragModel(x, Cd=0.1):
@@ -21,7 +41,7 @@ def dragModel(x, Cd=0.1):
     theta = x[4]
     airspeed = np.sqrt(x_dot ** 2 + y_dot ** 2)
     airspeed_angle = np.arctan2(y_dot, x_dot)
-    return -1 * Cd * np.abs(np.sin(theta - airspeed_angle)) * airspeed * np.array([x_dot, y_dot])
+    return -1 * Cd * np.abs(np.sin(theta - airspeed_angle)) * airspeed * np.array([x_dot, y_dot])  #newtons?
 
 def stateDerivative(state_vector,input_vector,g=9.8055):
     [x,y,x_dot,y_dot,theta,theta_dot] = state_vector
@@ -34,7 +54,7 @@ def stateDerivative(state_vector,input_vector,g=9.8055):
 
 def thrust(pwm):
     pwm_percent = (pwm-1000)/1000
-    max_motor_thrust = (470*2)/1000*kg2n #kilo/grams
+    max_motor_thrust = (600*2)/1000*kg2n #kilo/grams
     return pwm_percent*max_motor_thrust
 
 # 4th Order Runge Kutta Calculation
@@ -50,12 +70,6 @@ def RK4(x,u,dt):
     x_next = x + (1/6 * (K1+ 2*K2 + 2*K3 + K4) * dt)
     return np.array(x_next)
 
-def allocate_thrust(u):
-    # Inputs: u[k]
-    # Returns allocation PWM values for a given force/torque command
-    # Right now this just returns the input vector u because I haven't changed the controller to output [Fx, Fy, T].
-    return u
-
 
 
 #######
@@ -67,77 +81,104 @@ kg2n= 9.8055
 arm_length = 5 *in2m
 
 # Integration options
-dt=1/1500
-tf = 10
+dt=1/500
+tf = 120
 sim_t = np.arange(0,tf,dt)
 
 #Inital State
-state_itt = np.zeros((len(sim_t),9))
+state_itt = np.zeros((len(sim_t),12))
 state = [0,0,0,0,0,0]
 
 #Control
-kp_alt = 10
-ki_alt = 3
+kp_alt = 1
+ki_alt = 0.01
 kd_alt = 0
 alt_i = 0
 prev_alt_i = 0
 prev_alt_error =0
-alt_output =1000
 
-kp_pitch = 0.25
-ki_pitch = 0.001
-kd_pitch = 0.1
+
+kp_pitch = 0
+ki_pitch = 0.0
+kd_pitch = 0
 pitch_i = 0
 prev_pitch_i = 0
 prev_pitch_error =0
-pitch_output=1000
+
 
 
 control_timer =0
 control_dt = 1/250
-
+m1_output = 1000
+m2_output = 1000
+pitch_output=0
+alt_output =0
+alt_p =0
+pith_p=0
+pitch_i =0
+alt_i =0
+alt_d=0
+pitch_d=0
 # Actuators
-pwm_input = 1000
+pwm_input = 0
 
 #Noise
-alt_noise = 0
-pitch_noise =0
+alt_noise_pre = np.zeros(len(sim_t)) #np.random.normal(0,0.001,len(sim_t))
+pitch_noise_pre = np.zeros(len(sim_t)) #np.random.normal(0,0.001,len(sim_t))
 
 
 
 for i in range (0,len(sim_t)):
-    #do a bunch of random voodo
-    #get the hoodo
-    #sim results
+    #to the center of the eye we go
 
     if sim_t[i]-control_timer >= control_dt:
         control_timer = sim_t[i]
         #alltitude pid
+        alt_noise = alt_noise_pre[i]
 
-        alt_error = 0-state[1] + alt_noise
+        alt_error = 10-(state[1] + alt_noise)
+        if alt_error > 3:
+            kp_alt = 2
         alt_p = kp_alt*alt_error
         alt_i = prev_alt_i + (ki_alt*alt_error*control_dt)
-        prev_alt_i = alt_i
+        if alt_i < 5 and alt_i > -5:
+            prev_alt_i = alt_i
         alt_d = kd_alt*(prev_alt_error - alt_error)/control_dt
         prev_alt_error = alt_error
         alt_output = alt_p+alt_i+alt_d+1436.31415926
+        if alt_output > 1800:
+            alt_output = 1800
+        if alt_output < 1000:
+            alt_output = 1000
 
         #pitch pid
-        pitch_error =  state[4]-0
+        pitch_noise = pitch_noise_pre[i]
+
+        pitch_error = 0 - (state[4] + pitch_noise)
         pitch_p = kp_pitch * pitch_error
         pitch_i = prev_pitch_i + (ki_pitch * pitch_error * control_dt)
         prev_pitch_i = pitch_i
         pitch_d = kd_pitch * (prev_pitch_error - pitch_error) / control_dt
-        prev_alt_error = pitch_error
+        prev_pitch_error = pitch_error
         pitch_output = pitch_p + pitch_i + pitch_d
 
+        m1_output = alt_output-pitch_output
+        if m1_output > 2000:
+            m1_output = 2000
+        if m1_output < 1000:
+            m1_output = 1000
+        m2_output = alt_output + pitch_output
+        if m2_output > 2000:
+            m2_output = 2000
+        if m2_output < 1000:
+            m2_output = 1000
 
 
 
 
+    m1_force = thrust(m1_output)
+    m2_force = thrust(m2_output)
 
-    m1_force = thrust(alt_output+pitch_output)
-    m2_force = thrust(alt_output-pitch_output)
     M = m1_force*arm_length - m2_force*arm_length
 
     if i>0:
@@ -146,32 +187,69 @@ for i in range (0,len(sim_t)):
         alt_error =0
 
 
+
     state_itt[i][0:6] = RK4(np.array(state[0:6]),np.array([m1_force+m2_force,M]),dt)
-    state_itt[i][6] = alt_error
-    state_itt[i][7] = alt_i
-    state_itt[i][8] = alt_output
+    state_itt[i][6] = m1_force
+    state_itt[i][7] = m2_force
+    state_itt[i][8] = alt_p
+    state_itt[i][9] = alt_i
+    state_itt[i][10] = alt_d
+    state_itt[i][11] = alt_error
 
 
-plt.subplots(3, 1)
+plt.subplots(4, 1)
 
-plt.subplot(3, 1, 1)
-plt.plot(sim_t, state_itt[:,6], 'r--', label="altitude_output")
+plt.subplot(4, 1, 1)
+plt.plot(sim_t, state_itt[:,11], 'r--', label="Error")
 plt.legend()
-plt.xlabel('Y Position (m)')
-plt.ylabel('Pid Output')
+plt.xlabel('Time(s)')
+plt.ylabel('Altitude Error')
 
-plt.subplot(3, 1, 2)
+plt.subplot(4, 1, 2)
+plt.plot(sim_t, state_itt[:,8], 'r--', label="alt_p")
+plt.legend()
+plt.xlabel('Time(s)')
+plt.ylabel('P Term')
+
+plt.subplot(4, 1, 3)
+plt.plot(sim_t, state_itt[:,9], 'r--', label="alt_i")
+plt.legend()
+plt.xlabel('Time(s)')
+plt.ylabel('I Term')
+
+plt.subplot(4, 1, 4)
+plt.plot(sim_t, state_itt[:,10], 'r--', label="alt_d")
+plt.legend()
+plt.xlabel('Time(s)')
+plt.ylabel('D Term')
+
+plt.show()
+
+plt.subplots(4, 1)
+
+plt.subplot(4, 1, 1)
+plt.plot(sim_t, state_itt[:,6], 'r--', label="m1_force")
+plt.plot(sim_t, state_itt[:,7], 'k--', label="m2_force")
+plt.legend()
+plt.xlabel('Time(s)')
+plt.ylabel('Thrust(N)')
+
+plt.subplot(4, 1, 2)
 plt.plot(sim_t, state_itt[:,0], 'r--', label="x_pos")
 plt.plot(sim_t, state_itt[:,1], 'k--', label="y_pos")
 plt.legend()
 plt.xlabel('Time(s)')
 plt.ylabel('Pos(m) ')
 
-plt.subplot(3, 1, 3)
+plt.subplot(4, 1, 3)
 plt.plot(sim_t, state_itt[:,2], 'r--', label="x_dot")
 plt.plot(sim_t, state_itt[:,3], 'k--', label="y_dot")
 plt.legend()
+
+plt.subplot(4, 1, 4)
+plt.plot(sim_t, state_itt[:,4], 'r--', label="theta")
+plt.legend()
 plt.xlabel('Time(s)')
-plt.ylabel('Velocity(m/s)')
+plt.ylabel('Pitch')
 
 plt.show()
