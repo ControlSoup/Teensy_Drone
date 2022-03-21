@@ -1,7 +1,7 @@
 # Change Log
 #Added Pitch Controller, implemented noise to the control loop and tuned some of the pid loops
 #Added a imu model start
-#Saturated controller and somewhat of an imu model
+#Any amount of noise or setpoint error that isint perfect fucks everthing up
 
 from scipy import interpolate
 import numpy as np
@@ -86,20 +86,21 @@ tf = 120
 sim_t = np.arange(0,tf,dt)
 
 #Inital State
-state_itt = np.zeros((len(sim_t),12))
+state_itt = np.zeros((len(sim_t),13))
 state = [0,0,0,0,0,0]
 
 #Control
-kp_alt = 1
-ki_alt = 0.01
-kd_alt = 0
+alt_desired = 10
+kp_alt = 20
+ki_alt = 0.1
+kd_alt = 2
 alt_i = 0
 prev_alt_i = 0
 prev_alt_error =0
 
-
+pitch_desired = 0
 kp_pitch = 0
-ki_pitch = 0.0
+ki_pitch = 0
 kd_pitch = 0
 pitch_i = 0
 prev_pitch_i = 0
@@ -114,7 +115,7 @@ m2_output = 1000
 pitch_output=0
 alt_output =0
 alt_p =0
-pith_p=0
+pitch_p=0
 pitch_i =0
 alt_i =0
 alt_d=0
@@ -123,8 +124,8 @@ pitch_d=0
 pwm_input = 0
 
 #Noise
-alt_noise_pre = np.zeros(len(sim_t)) #np.random.normal(0,0.001,len(sim_t))
-pitch_noise_pre = np.zeros(len(sim_t)) #np.random.normal(0,0.001,len(sim_t))
+alt_noise_pre = np.random.normal(0,0.001,len(sim_t))
+pitch_noise_pre =  np.random.normal(0,0.00,len(sim_t))
 
 
 
@@ -136,13 +137,12 @@ for i in range (0,len(sim_t)):
         #alltitude pid
         alt_noise = alt_noise_pre[i]
 
-        alt_error = 10-(state[1] + alt_noise)
-        if alt_error > 3:
-            kp_alt = 2
+
+
+        alt_error = alt_desired -(state[1] + alt_noise)
         alt_p = kp_alt*alt_error
         alt_i = prev_alt_i + (ki_alt*alt_error*control_dt)
-        if alt_i < 5 and alt_i > -5:
-            prev_alt_i = alt_i
+        prev_alt_i = alt_i
         alt_d = kd_alt*(prev_alt_error - alt_error)/control_dt
         prev_alt_error = alt_error
         alt_output = alt_p+alt_i+alt_d+1436.31415926
@@ -154,13 +154,21 @@ for i in range (0,len(sim_t)):
         #pitch pid
         pitch_noise = pitch_noise_pre[i]
 
-        pitch_error = 0 - (state[4] + pitch_noise)
+        pitch_error = pitch_desired - (state[4] + pitch_noise)
         pitch_p = kp_pitch * pitch_error
         pitch_i = prev_pitch_i + (ki_pitch * pitch_error * control_dt)
         prev_pitch_i = pitch_i
         pitch_d = kd_pitch * (prev_pitch_error - pitch_error) / control_dt
         prev_pitch_error = pitch_error
         pitch_output = pitch_p + pitch_i + pitch_d
+
+
+        if sim_t[i] > 5:
+            pitch_desired = 3
+        if sim_t[i] > 10:
+            pitch_desired = -3
+        if sim_t[i] > 15:
+            pitch_desired = 0
 
         m1_output = alt_output-pitch_output
         if m1_output > 2000:
@@ -176,6 +184,8 @@ for i in range (0,len(sim_t)):
 
 
 
+
+
     m1_force = thrust(m1_output)
     m2_force = thrust(m2_output)
 
@@ -185,43 +195,50 @@ for i in range (0,len(sim_t)):
         state = state_itt[i-1][:]
     else:
         alt_error =0
+        pitch_error=0
 
 
 
     state_itt[i][0:6] = RK4(np.array(state[0:6]),np.array([m1_force+m2_force,M]),dt)
     state_itt[i][6] = m1_force
     state_itt[i][7] = m2_force
-    state_itt[i][8] = alt_p
-    state_itt[i][9] = alt_i
-    state_itt[i][10] = alt_d
-    state_itt[i][11] = alt_error
+    state_itt[i][8] = pitch_p
+    state_itt[i][9] = pitch_i
+    state_itt[i][10] = pitch_d
+    state_itt[i][11] = pitch_error
+    state_itt[i][12] = pitch_desired
 
 
-plt.subplots(4, 1)
+plt.subplots(5, 1)
 
-plt.subplot(4, 1, 1)
+plt.subplot(5, 1, 1)
 plt.plot(sim_t, state_itt[:,11], 'r--', label="Error")
 plt.legend()
 plt.xlabel('Time(s)')
-plt.ylabel('Altitude Error')
+plt.ylabel('Pitch Error')
 
-plt.subplot(4, 1, 2)
-plt.plot(sim_t, state_itt[:,8], 'r--', label="alt_p")
+plt.subplot(5, 1, 2)
+plt.plot(sim_t, state_itt[:,8], 'r--', label="pitch_p")
 plt.legend()
 plt.xlabel('Time(s)')
 plt.ylabel('P Term')
 
-plt.subplot(4, 1, 3)
-plt.plot(sim_t, state_itt[:,9], 'r--', label="alt_i")
+plt.subplot(5, 1, 3)
+plt.plot(sim_t, state_itt[:,9], 'r--', label="pitch_i")
 plt.legend()
 plt.xlabel('Time(s)')
 plt.ylabel('I Term')
 
-plt.subplot(4, 1, 4)
-plt.plot(sim_t, state_itt[:,10], 'r--', label="alt_d")
+plt.subplot(5, 1, 4)
+plt.plot(sim_t, state_itt[:,10], 'r--', label="pitch_d")
 plt.legend()
 plt.xlabel('Time(s)')
 plt.ylabel('D Term')
+
+plt.subplot(5, 1, 5)
+plt.plot(sim_t, state_itt[:,12], 'r--', label="pitch_d")
+plt.xlabel('Time(s)')
+plt.ylabel('Pitch Desired')
 
 plt.show()
 
@@ -239,17 +256,26 @@ plt.plot(sim_t, state_itt[:,0], 'r--', label="x_pos")
 plt.plot(sim_t, state_itt[:,1], 'k--', label="y_pos")
 plt.legend()
 plt.xlabel('Time(s)')
-plt.ylabel('Pos(m) ')
+plt.ylabel('Pos(m)')
 
 plt.subplot(4, 1, 3)
 plt.plot(sim_t, state_itt[:,2], 'r--', label="x_dot")
 plt.plot(sim_t, state_itt[:,3], 'k--', label="y_dot")
 plt.legend()
+plt.xlabel('Time(s)')
+plt.ylabel('Velocity(m/s)')
 
 plt.subplot(4, 1, 4)
 plt.plot(sim_t, state_itt[:,4], 'r--', label="theta")
 plt.legend()
 plt.xlabel('Time(s)')
-plt.ylabel('Pitch')
+plt.ylabel('Pitch(degrees)')
+
+plt.subplots_adjust(left=0.1,
+                    bottom=0.1,
+                    right=0.9,
+                    top=0.9,
+                    wspace=0.4,
+                    hspace=0.4)
 
 plt.show()
