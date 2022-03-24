@@ -57,8 +57,11 @@ int state =-1;
   //IMU
   int16_t  ax,ay,az,gx,gy,gz;
   float acc[3];
+  float mag_acc;
   float gyro[3];
   float scew_sym[3][3]={{0,0,0},{0,0,0},{0,0,0}};
+  float Cb2i_gyro[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
+  float Cb2i_acc[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
   float Cb2i_dot[3][3];
   float gx_cal, gy_cal, gz_cal;
@@ -261,13 +264,12 @@ void control_loop(){
         prev_roll_error = roll_error;
         output_roll = p_roll + i_roll + d_roll ;
 
-  Serial.print(pitch_error*rad2deg);
-  Serial.print(", ");
+
   Serial.print(roll_error*rad2deg);
-  Serial.print(", ");
-  Serial.print(yaw_error*rad2deg);
-  Serial.print(", ");
-  Serial.println(data_time);
+  Serial.print(" ");
+  Serial.println(pitch_error*rad2deg);
+  
+
   
   
 }
@@ -288,6 +290,7 @@ void imu_update(){
   acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
   acc[1] = float(ay)/4096*g2ms2;
   acc[2] = float(az)/4096*g2ms2;
+  mag_acc = sqrt((ax*ax)+(ay*ay)+(az*az));
   gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
   gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
   gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
@@ -308,30 +311,59 @@ void imu_update(){
     //scew_sym[2][2] =0;
     
     //DCM_rate from body to inertial frame (matrix multiplication) 
-    Cb2i_dot[0][0] = Cb2i[0][1]*scew_sym[1][0]+Cb2i[0][2]*scew_sym[2][0];
-    Cb2i_dot[1][0] = Cb2i[1][1]*scew_sym[1][0]+Cb2i[1][2]*scew_sym[2][0];
-    Cb2i_dot[2][0] = Cb2i[2][1]*scew_sym[1][0]+Cb2i[2][2]*scew_sym[2][0];
+    Cb2i_dot[0][0] = Cb2i_gyro[0][1]*scew_sym[1][0]+Cb2i_gyro[0][2]*scew_sym[2][0];
+    Cb2i_dot[1][0] = Cb2i_gyro[1][1]*scew_sym[1][0]+Cb2i_gyro[1][2]*scew_sym[2][0];
+    Cb2i_dot[2][0] = Cb2i_gyro[2][1]*scew_sym[1][0]+Cb2i_gyro[2][2]*scew_sym[2][0];
 
-    Cb2i_dot[0][1] = Cb2i[0][0]*scew_sym[0][1]+Cb2i[0][2]*scew_sym[2][1];
-    Cb2i_dot[1][1] = Cb2i[1][0]*scew_sym[0][1]+Cb2i[1][2]*scew_sym[2][1];
-    Cb2i_dot[2][1] = Cb2i[2][0]*scew_sym[0][1]+Cb2i[2][2]*scew_sym[2][1];
+    Cb2i_dot[0][1] = Cb2i_gyro[0][0]*scew_sym[0][1]+Cb2i_gyro[0][2]*scew_sym[2][1];
+    Cb2i_dot[1][1] = Cb2i_gyro[1][0]*scew_sym[0][1]+Cb2i_gyro[1][2]*scew_sym[2][1];
+    Cb2i_dot[2][1] = Cb2i_gyro[2][0]*scew_sym[0][1]+Cb2i_gyro[2][2]*scew_sym[2][1];
     
-    Cb2i_dot[0][2] = Cb2i[0][0]*scew_sym[0][2]+Cb2i[0][1]*scew_sym[1][2];
-    Cb2i_dot[1][2] = Cb2i[1][0]*scew_sym[0][2]+Cb2i[1][1]*scew_sym[1][2];
-    Cb2i_dot[2][2] = Cb2i[2][0]*scew_sym[0][2]+Cb2i[2][1]*scew_sym[1][2];
+    Cb2i_dot[0][2] = Cb2i_gyro[0][0]*scew_sym[0][2]+Cb2i_gyro[0][1]*scew_sym[1][2];
+    Cb2i_dot[1][2] = Cb2i_gyro[1][0]*scew_sym[0][2]+Cb2i_gyro[1][1]*scew_sym[1][2];
+    Cb2i_dot[2][2] = Cb2i_gyro[2][0]*scew_sym[0][2]+Cb2i_gyro[2][1]*scew_sym[1][2];
     
     // DCM Attitude Estimates
 
-    Cb2i[0][0] += Cb2i_dot[0][0] *dt; 
-    Cb2i[1][0] += Cb2i_dot[1][0] *dt; 
-    Cb2i[2][0] += Cb2i_dot[2][0] *dt; 
-    Cb2i[0][1] += Cb2i_dot[0][1] *dt; 
-    Cb2i[1][1] += Cb2i_dot[1][1] *dt; 
-    Cb2i[2][1] += Cb2i_dot[2][1] *dt; 
-    Cb2i[0][2] += Cb2i_dot[0][2] *dt; 
-    Cb2i[1][2] += Cb2i_dot[1][2] *dt; 
-    Cb2i[2][2] += Cb2i_dot[2][2] *dt; 
+    
+    //DCM rate
+    Cb2i_gyro[0][0] += Cb2i_dot[0][0] *dt; 
+    Cb2i_gyro[1][0] += Cb2i_dot[1][0] *dt; 
+    Cb2i_gyro[2][0] += Cb2i_dot[2][0] *dt; 
+    
+    Cb2i_gyro[0][1] += Cb2i_dot[0][1] *dt; 
+    Cb2i_gyro[1][1] += Cb2i_dot[1][1] *dt; 
+    Cb2i_gyro[2][1] += Cb2i_dot[2][1] *dt; 
+    
+    Cb2i_gyro[0][2] += Cb2i_dot[0][2] *dt; 
+    Cb2i_gyro[1][2] += Cb2i_dot[1][2] *dt; 
+    Cb2i_gyro[2][2] += Cb2i_dot[2][2] *dt; 
+    
+    //Shitty attiude estimate from acc
+    Cb2i_acc[2][0] = acc[0]/mag_acc;
+    Cb2i_acc[2][1] = acc[1]/mag_acc;
+    Cb2i_acc[2][2] = acc[2]/mag_acc;
+    
+    Cb2i_acc[1][0] = 0;
+    Cb2i_acc[1][1] = Cb2i_acc[2][2]/sqrt((Cb2i_acc[2][1]*Cb2i_acc[2][1])+(Cb2i_acc[2][2]*Cb2i_acc[2][2]));
+    Cb2i_acc[1][2] = -Cb2i_acc[2][1] /sqrt((Cb2i_acc[2][1]*Cb2i_acc[2][1])+(Cb2i_acc[2][2]*Cb2i_acc[2][2]));
+    
+    Cb2i_acc[0][0] = (Cb2i_acc[1][1]*Cb2i_acc[2][2])-(Cb2i_acc[1][2]*Cb2i_acc[2][1]);
+    Cb2i_acc[0][1] = (Cb2i_acc[1][2]*Cb2i_acc[2][0])-(Cb2i_acc[1][0]*Cb2i_acc[2][2]);
+    Cb2i_acc[0][2] = (Cb2i_acc[1][0]*Cb2i_acc[2][1])-(Cb2i_acc[1][1]*Cb2i_acc[2][0]);
 
+    //test
+    Cb2i[0][0] = Cb2i_acc[0][0];
+    Cb2i[1][0] = Cb2i_acc[1][0];
+    Cb2i[2][0] = Cb2i_acc[2][0];
+    
+    Cb2i[0][1] = Cb2i_acc[0][1];
+    Cb2i[1][1] = Cb2i_acc[1][1];
+    Cb2i[2][1] = Cb2i_acc[2][1];
+    
+    Cb2i[0][2] = Cb2i_acc[0][2];
+    Cb2i[1][2] = Cb2i_acc[1][2];
+    Cb2i[2][2] = Cb2i_acc[2][2];
     
    
         
@@ -340,18 +372,44 @@ void imu_update(){
 }
 
 void imu_calibrate(){
-  
+  float ax_avg;
+  float ay_avg;
+  float az_avg;
   int n = 2000;
   for (int cal_int = 0; cal_int < n ; cal_int ++){                  //Run this code n times 
     mpu.getMotion6(&ax, &ay, &az,&gx, &gy, &gz);                           
     gx_cal += gx;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
     gy_cal += gy;                                              
-    gz_cal += gz;                                              
+    gz_cal += gz;        
+    ax_avg += ax;
+    ay_avg += ay;
+    az_avg += az;
+                                          
     delay(4);                                                         //(250hz)
   }
   gx_cal /= n;                                                  //Divide the gyro_x_cal variable by n to get the avarage offset
   gy_cal /= n;                                                  
   gz_cal /= n;
+  ax_avg /= n;
+  ay_avg /= n;
+  az_avg /= n;
+  int mag_ax_avg = sqrt((ax_avg*ax_avg)+(ay_avg*ay_avg)+(az_avg*az_avg));
+  
+  //Initalize Gyro (Strapdown) 6-4 
+  
+  Cb2i_gyro[2][0] = ax_avg/mag_ax_avg;
+  Cb2i_gyro[2][1] = ay_avg/mag_ax_avg;
+  Cb2i_gyro[2][2] = az_avg/mag_ax_avg;
+  
+  Cb2i_gyro[1][0] = 0;
+  Cb2i_gyro[1][1] = Cb2i_gyro[2][2]/sqrt((Cb2i_gyro[2][1]*Cb2i_gyro[2][1])+(Cb2i_gyro[2][2]*Cb2i_gyro[2][2]));
+  Cb2i_gyro[1][2] = -Cb2i_gyro[2][1] /sqrt((Cb2i_gyro[2][1]*Cb2i_gyro[2][1])+(Cb2i_gyro[2][2]*Cb2i_gyro[2][2]));
+  
+  Cb2i_gyro[0][0] = (Cb2i_gyro[1][1]*Cb2i_gyro[2][2])-(Cb2i_gyro[1][2]*Cb2i_gyro[2][1]);
+  Cb2i_gyro[0][1] = (Cb2i_gyro[1][2]*Cb2i_gyro[2][0])-(Cb2i_gyro[1][0]*Cb2i_gyro[2][2]);
+  Cb2i_gyro[0][2] = (Cb2i_gyro[1][0]*Cb2i_gyro[2][1])-(Cb2i_gyro[1][1]*Cb2i_gyro[2][0]);
+  
+  
 }
 
 void imu_startup(){
