@@ -26,7 +26,7 @@ MPU6050 mpu;
 
 // Reciever
 PWM ch1(37);
-PWM ch2(38);
+PWM ch2(36);
 PWM ch3(33);
 PWM ch4(28);
 PWM ch5(29);
@@ -40,10 +40,19 @@ Servo m4;
 
 //Variables
 
+//magic numbers
+  const float deg2rad = 0.01745327777;
+  const float g2ms2 = 9.8055;
+  const float rad2deg = 1/deg2rad;
+  const float pi = 3.1415926;
+  const float analog2voltage = (3.3 / 1023.0);
+//switchs
+
+int s1;
 
 
-
-int state =-1;
+float batt_v;
+int state =0;
 
   
   //Motors
@@ -55,6 +64,7 @@ int state =-1;
   float r_roll,r_pitch,r_yaw,r_throttle,r_switch;
   
   //IMU
+  float comp_gain = 0.98;
   int16_t  ax,ay,az,gx,gy,gz;
   float acc[3];
   float mag_acc;
@@ -74,18 +84,18 @@ int state =-1;
   
     //Yaw
     float output_yaw,p_yaw,i_yaw,prev_yaw_error,yaw_error;
-      const float kp_yaw = 6;
-      const float ki_yaw = 0.01;
-    //Pitch
+      const float kp_yaw = 200;
+      const float ki_yaw = 0;
+      //Pitch
     float output_pitch,p_pitch,i_pitch,d_pitch,prev_pitch_error,pitch_error;
-      const float kp_pitch = 1;
-      const float ki_pitch = 0.001;
-      const float kd_pitch = 10;
+      const float kp_pitch = 90;
+      const float ki_pitch = 0;
+      const float kd_pitch = 0;
     //Roll
     float output_roll,p_roll,i_roll,d_roll,prev_roll_error,roll_error;
-      const float kp_roll = 1;
-      const float ki_roll = 0.001;
-      const float kd_roll = 10;
+      const float kp_roll = 90;
+      const float ki_roll = 0;
+      const float kd_roll = 0;
     
    
  
@@ -95,11 +105,7 @@ int state =-1;
   float led_timer_flight =250;
 
 
-  //magic numbers
-  const float deg2rad = 0.01745327777;
-  const float g2ms2 = 9.8055;
-  const float rad2deg = 1/deg2rad;
-  const float pi = 3.1415926;
+  
 
 void setup() {
   
@@ -127,6 +133,7 @@ void setup() {
   loop_timer = micros();                                               //Reset loop timer
   prev_time_led = millis();
   start_time = prev_time_led;
+  
 }
 
 
@@ -136,22 +143,20 @@ void setup() {
 ///////////////////////////////
 
 void loop() {
-  // put your main code here, to run repeatedly:
   imu_update();
   receiver_update();
-  control_loop();
-
+  state_loop();
   m1.writeMicroseconds(m1_output);
   m2.writeMicroseconds(m2_output);
   m3.writeMicroseconds(m3_output);
   m4.writeMicroseconds(m4_output);
-
-  
+//  print_();
   while(micros() - loop_timer < 4000); //Wait until the loop_timer reaches 4000us (250Hz) before starting the next loop  
   current_t = micros();
   dt = (current_t - loop_timer)/1000000;
   loop_timer = micros();          //Reset the loop timer
   data_time = (millis()-start_time)/1000;
+  Serial.println(batt_v);
   
   
 }
@@ -161,11 +166,13 @@ void loop() {
 //STATE LOOP
 ///////////////////////////////
 void state_loop(){
+  batt_v = analogRead(7);
   if (r_switch >1500){
     state =1;
   }
   else{
     state = 0;
+    
   }
   check_abort(); //Abort conditions
   
@@ -174,29 +181,41 @@ void state_loop(){
     m2_output = 0;
     m3_output = 0;
     m4_output = 0;
-    digitalWrite(led,LOW);
-  }
+    m1.writeMicroseconds(m1_output);
+    m2.writeMicroseconds(m2_output);
+    m3.writeMicroseconds(m3_output);
+    m4.writeMicroseconds(m4_output);
 
-  else if (state ==1){ //Flight
+    digitalWrite(led,LOW);
+    if (s1 != 1){
+      imu_calibrate();
+      s1=1;
+    }
+  }
+  
+
+  if (state ==1){ //Flight
+    s1=0;
     if (r_throttle > 1800) r_throttle = 1800;
     if (r_throttle < 1000) r_throttle = 1000;
-    m1_output =r_throttle+output_yaw+output_pitch+output_roll;
-    m2_output =r_throttle-output_yaw+output_pitch-output_roll;
-    m3_output =r_throttle+output_yaw+output_pitch-output_roll;
-    m4_output =r_throttle-output_yaw-output_pitch+output_roll;
-
+    control_loop();
+    m1_output =r_throttle-output_yaw-output_pitch-output_roll;
+    m2_output =r_throttle+output_yaw+output_pitch+output_roll;
+    m3_output =r_throttle-output_yaw-output_pitch+output_roll;
+    m4_output =r_throttle+output_yaw+output_pitch-output_roll;
     if (m1_output < min_t) m1_output = min_t; //Keep the motors running.
     if (m2_output < min_t) m2_output = min_t;                                         
     if (m3_output < min_t) m3_output = min_t;                                         
     if (m4_output < min_t) m4_output = min_t;  
     if ((millis()-prev_time_led)>led_timer_flight) digitalWrite(led,HIGH);
-    if ((millis()-prev_time_led)>led_timer_flight*2){
-      digitalWrite(led,LOW);
-      prev_time_led = millis();
-    }
-  }
+      if ((millis()-prev_time_led)>led_timer_flight*2){
+        digitalWrite(led,LOW);
+        prev_time_led = millis();
+      }
    
-  else if (state == -1){ //testing
+    }
+   
+  if (state == -1){ //testing
     control_loop();
     m1_output = r_throttle;
     m2_output = r_throttle;
@@ -207,16 +226,47 @@ void state_loop(){
       digitalWrite(led,LOW);
       prev_time_led = millis();
     }
-    
-    
   }
 
 }
 
 
+//// Common to all control algs
+//typedef struct _control_in{
+//  // input stuff
+//} control_in;
+//
+//typedef struct _control_out{
+//  // Output stuff
+//} control_out;
+//
+//// Control algorithm: ALPHA
+//typedef struct _control_alpha_internal{
+//  float k_p[3];
+//  float k_d[3];
+//  float k_i[3];
+//  float i_val[3];
+//} control_alpha_internal;
+//
+//control_alpha_internal ctrl = {.k_p = {1.0, 2.0, 3.0},
+//                         .k_d = {0.5, 0.5, 0.5},
+//                         .k_i = {0.1, 0.2, 0.3},
+//                         .i_val = {0.0, 0.0, 0.0}};
+//
+//control_alpha_internal ctrl;
+////ctrl.k_p[0] = 1.0;
+////ctrl.k_p[1] = 2.0;
+//
+//control_out control_alpha(control_alpha_internal ctrl, control_in ctrl_in){
+//  control_out ctrl_out;
+//
+//  //Do stuff
+//  
+//  return ctrl_out;
+//}
+// end control algorithm ALPHA
 
-
-void control_loop(){
+void control_loop(){//seperate and only use needed argumented
   //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
   Cb2i_error[0][0] = Cb2i_target[0][0]*Cb2i[0][0]+Cb2i_target[0][1]*Cb2i[0][1]+Cb2i_target[0][2]*Cb2i[0][2];
   Cb2i_error[1][0] = Cb2i_target[1][0]*Cb2i[0][0]+Cb2i_target[1][1]*Cb2i[0][1]+Cb2i_target[1][2]*Cb2i[0][2];
@@ -242,36 +292,50 @@ void control_loop(){
   if (Cb2i_error[2][0] >= 0.999){
     pitch_error =  pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]))-yaw_error ;
   }
-
+  if (r_pitch >1800){
+    pitch_error +=2*deg2rad;
+  }
+  if (r_pitch<1300){
+    pitch_error -=2*deg2rad;
+  }
+  if (r_roll >1800){
+    roll_error += 2*deg2rad;
+  }
+  if (r_roll<1300){
+    roll_error -= 2*deg2rad;
+  }
   //Attitude Control Law
-
       //yaw
         p_yaw= kp_yaw*yaw_error;
-        i_yaw += ki_yaw*yaw_error;
+        if (yaw_error >-3 or yaw_error <-3){
+            i_yaw += ki_yaw*yaw_error;
+        }
+        else i_yaw =0;
         output_yaw = p_yaw + i_yaw ;
+        
       
       //Pitch
         p_pitch= kp_pitch*pitch_error;
-        i_pitch += ki_pitch*pitch_error;
+        if (pitch_error >-3 or pitch_error <3){
+          i_pitch += ki_pitch*pitch_error;
+        }
+        else i_pitch =0;
         d_pitch = kd_pitch*(prev_pitch_error - pitch_error);
         prev_pitch_error = pitch_error;
         output_pitch = p_pitch + i_pitch + d_pitch ;
 
       //Roll (dont do a barrel roll)
         p_roll= kp_roll*roll_error;
-        i_roll += ki_roll*roll_error;
+        if (roll_error >-3 or roll_error <3){
+          i_roll += ki_roll*roll_error;
+        }
+        else i_roll =0;
         d_roll = kd_roll*(prev_roll_error - roll_error);
         prev_roll_error = roll_error;
         output_roll = p_roll + i_roll + d_roll ;
 
-
-  Serial.print(roll_error*rad2deg);
-  Serial.print(" ");
-  Serial.println(pitch_error*rad2deg);
   
-
-  
-  
+        
 }
 
 
@@ -279,9 +343,9 @@ void control_loop(){
 void check_abort(){
 }
 
-////////////////////////////////
-//IMU
-///////////////////////////////
+///////
+//IMU//
+///////
 float test;
 void imu_update(){
   //Read Raw data 
@@ -290,7 +354,7 @@ void imu_update(){
   acc[0] = float(ax)/4096*g2ms2; //Convert int16 raw (LSB) to float m/s2
   acc[1] = float(ay)/4096*g2ms2;
   acc[2] = float(az)/4096*g2ms2;
-  mag_acc = sqrt((ax*ax)+(ay*ay)+(az*az));
+  mag_acc = sqrt((acc[0]*acc[0])+(acc[1]*acc[1])+(acc[2]*acc[2]));
   gyro[0] = (float(gx)-gx_cal)/65.5*deg2rad; //Convert int16 raw (LSB) to float rad/s
   gyro[1] = (float(gy)-gy_cal)/65.5*deg2rad;
   gyro[2] = (float(gz)-gz_cal)/65.5*deg2rad;
@@ -352,18 +416,18 @@ void imu_update(){
     Cb2i_acc[0][1] = (Cb2i_acc[1][2]*Cb2i_acc[2][0])-(Cb2i_acc[1][0]*Cb2i_acc[2][2]);
     Cb2i_acc[0][2] = (Cb2i_acc[1][0]*Cb2i_acc[2][1])-(Cb2i_acc[1][1]*Cb2i_acc[2][0]);
 
-    //test
-    Cb2i[0][0] = Cb2i_acc[0][0];
-    Cb2i[1][0] = Cb2i_acc[1][0];
-    Cb2i[2][0] = Cb2i_acc[2][0];
+    //Complimentary Filter
+    Cb2i[0][0] = Cb2i_gyro[0][0]*comp_gain+(Cb2i_acc[0][0]*(1-comp_gain));
+    Cb2i[1][0] = Cb2i_gyro[1][0]*comp_gain+(Cb2i_acc[1][0]*(1-comp_gain));
+    Cb2i[2][0] = Cb2i_gyro[2][0]*comp_gain+(Cb2i_acc[2][0]*(1-comp_gain));
     
-    Cb2i[0][1] = Cb2i_acc[0][1];
-    Cb2i[1][1] = Cb2i_acc[1][1];
-    Cb2i[2][1] = Cb2i_acc[2][1];
+    Cb2i[0][1] = Cb2i_gyro[0][1]*comp_gain+(Cb2i_acc[0][1]*(1-comp_gain));
+    Cb2i[1][1] = Cb2i_gyro[1][1]*comp_gain+(Cb2i_acc[1][1]*(1-comp_gain));
+    Cb2i[2][1] = Cb2i_gyro[2][1]*comp_gain+(Cb2i_acc[2][1]*(1-comp_gain));
     
-    Cb2i[0][2] = Cb2i_acc[0][2];
-    Cb2i[1][2] = Cb2i_acc[1][2];
-    Cb2i[2][2] = Cb2i_acc[2][2];
+    Cb2i[0][2] = Cb2i_gyro[0][2]*comp_gain+(Cb2i_acc[0][2]*(1-comp_gain));
+    Cb2i[1][2] = Cb2i_gyro[1][2]*comp_gain+(Cb2i_acc[1][2]*(1-comp_gain));
+    Cb2i[2][2] = Cb2i_gyro[2][2]*comp_gain+(Cb2i_acc[2][2]*(1-comp_gain));
     
    
         
@@ -429,10 +493,10 @@ void imu_startup(){
 ///////////////////////////////
 
 void receiver_update(){
-  r_pitch = ch1.getValue();
+  r_pitch = ch2.getValue();
   if (r_pitch < 1000) r_pitch = 1000;
   if (r_pitch > 2000) r_pitch = 2000;
-  r_roll = ch2.getValue();
+  r_roll = ch1.getValue();
   if (r_roll < 1000) r_roll = 1000;
   if (r_roll > 2000) r_roll = 2000;
   r_throttle = ch3.getValue();
@@ -444,4 +508,10 @@ void receiver_update(){
   r_switch = ch5.getValue();
   if (r_switch < 1000) r_switch = 1000;
   if (r_switch > 2000) r_switch = 2000;
+}
+
+void print_(){
+  Serial.print(m1_output);
+  Serial.print(" ");
+  Serial.println(m3_output);
 }
