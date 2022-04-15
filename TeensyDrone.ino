@@ -1,17 +1,15 @@
 ///////////////
 //Need Pid Values
-//!*! ERROR !*! State Loop with control loop in it crashes the teensy lol
 //Need Filter of some kind
 //Need aborts
-//Needs testing
 //////////////
-#include <MPU6050.h>
-
+#include "math.cpp"
+#include "Strapdown.cpp"
 #include "PWM.hpp"
-#include <Wire.h>
-#include <Servo.h>
-#include <WireIMXRT.h>
-#include <WireKinetis.h>
+#include "Wire.h"
+#include "Servo.h"
+#include "WireIMXRT.h"
+#include "WireKinetis.h"
 //IMU
 #include "I2Cdev.h"
 #include "MPU6050.h"
@@ -22,7 +20,7 @@
 
 
 MPU6050 mpu;
-
+//Math
 
 // Reciever
 PWM ch1(37);
@@ -166,7 +164,6 @@ void loop() {
 //STATE LOOP
 ///////////////////////////////
 void state_loop(){
-  batt_v = analogRead(7);
   if (r_switch >1500){
     state =1;
   }
@@ -267,31 +264,17 @@ void state_loop(){
 // end control algorithm ALPHA
 
 void control_loop(){//seperate and only use needed argumented
-  //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
-  Cb2i_error[0][0] = Cb2i_target[0][0]*Cb2i[0][0]+Cb2i_target[0][1]*Cb2i[0][1]+Cb2i_target[0][2]*Cb2i[0][2];
-  Cb2i_error[1][0] = Cb2i_target[1][0]*Cb2i[0][0]+Cb2i_target[1][1]*Cb2i[0][1]+Cb2i_target[1][2]*Cb2i[0][2];
-  Cb2i_error[2][0] = Cb2i_target[2][0]*Cb2i[0][0]+Cb2i_target[2][1]*Cb2i[0][1]+Cb2i_target[2][2]*Cb2i[0][2];
-
-  Cb2i_error[0][1] = Cb2i_target[0][0]*Cb2i[1][0]+Cb2i_target[0][1]*Cb2i[1][1]+Cb2i_target[0][2]*Cb2i[1][2];
-  Cb2i_error[1][1] = Cb2i_target[1][0]*Cb2i[1][0]+Cb2i_target[1][1]*Cb2i[1][1]+Cb2i_target[1][2]*Cb2i[1][2];
-  Cb2i_error[2][1] = Cb2i_target[2][0]*Cb2i[1][0]+Cb2i_target[2][1]*Cb2i[1][1]+Cb2i_target[2][2]*Cb2i[1][2];
   
-  Cb2i_error[0][2] = Cb2i_target[0][0]*Cb2i[2][0]+Cb2i_target[0][1]*Cb2i[2][1]+Cb2i_target[0][2]*Cb2i[2][2];
-  Cb2i_error[1][2] = Cb2i_target[1][0]*Cb2i[2][0]+Cb2i_target[1][2]*Cb2i[2][1]+Cb2i_target[1][2]*Cb2i[2][2];
-  Cb2i_error[2][2] = Cb2i_target[2][0]*Cb2i[2][0]+Cb2i_target[2][1]*Cb2i[2][1]+Cb2i_target[2][2]*Cb2i[2][2];
+  //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
+  Cb2i_error = cross_3x3(Cb2i_target,transpose_3x3(Cb2i))
   
   //DCM to Euler
-  roll_error = atan(-Cb2i_error[2][0]/sqrt(1-(Cb2i_error[2][0]*Cb2i_error[2][0])));
-  if (abs(Cb2i_error[2][0]) <0.999){
-    pitch_error = atan(Cb2i_error[2][1]/Cb2i_error[2][2]);
-    yaw_error = atan(Cb2i_error[1][0]/Cb2i_error[0][0]);
-  }
-  if (Cb2i_error[2][0] <= - 0.999){
-    pitch_error = yaw_error - atan((Cb2i_error[1][2]-Cb2i_error[0][1])/(Cb2i_error[0][2]+Cb2i_error[1][1]));
-  }
-  if (Cb2i_error[2][0] >= 0.999){
-    pitch_error =  pi + atan((Cb2i_error[1][2]+Cb2i_error[0][1])/(Cb2i_error[0][2]-Cb2i_error[1][1]))-yaw_error ;
-  }
+  float euler;
+  euler_error = dcm2euler(Cb2i_error);
+  pitch_error = euler_error[0]
+  roll_error = euler_error[1]
+  yaw_error = euler_error[2]
+  
   if (r_pitch >1800){
     pitch_error +=2*deg2rad;
   }
@@ -326,7 +309,7 @@ void control_loop(){//seperate and only use needed argumented
 
       //Roll (dont do a barrel roll)
         p_roll= kp_roll*roll_error;
-        if (roll_error >-3 or roll_error <3){
+        if (roll_error >-3 or roll_error <3){ 
           i_roll += ki_roll*roll_error;
         }
         else i_roll =0;
@@ -374,18 +357,8 @@ void imu_update(){
     scew_sym[2][1] = -gyro[0];
     //scew_sym[2][2] =0;
     
-    //DCM_rate from body to inertial frame (matrix multiplication) 
-    Cb2i_dot[0][0] = Cb2i_gyro[0][1]*scew_sym[1][0]+Cb2i_gyro[0][2]*scew_sym[2][0];
-    Cb2i_dot[1][0] = Cb2i_gyro[1][1]*scew_sym[1][0]+Cb2i_gyro[1][2]*scew_sym[2][0];
-    Cb2i_dot[2][0] = Cb2i_gyro[2][1]*scew_sym[1][0]+Cb2i_gyro[2][2]*scew_sym[2][0];
-
-    Cb2i_dot[0][1] = Cb2i_gyro[0][0]*scew_sym[0][1]+Cb2i_gyro[0][2]*scew_sym[2][1];
-    Cb2i_dot[1][1] = Cb2i_gyro[1][0]*scew_sym[0][1]+Cb2i_gyro[1][2]*scew_sym[2][1];
-    Cb2i_dot[2][1] = Cb2i_gyro[2][0]*scew_sym[0][1]+Cb2i_gyro[2][2]*scew_sym[2][1];
-    
-    Cb2i_dot[0][2] = Cb2i_gyro[0][0]*scew_sym[0][2]+Cb2i_gyro[0][1]*scew_sym[1][2];
-    Cb2i_dot[1][2] = Cb2i_gyro[1][0]*scew_sym[0][2]+Cb2i_gyro[1][1]*scew_sym[1][2];
-    Cb2i_dot[2][2] = Cb2i_gyro[2][0]*scew_sym[0][2]+Cb2i_gyro[2][1]*scew_sym[1][2];
+    //DCM_rate from body to inertial frame 
+    Cb2i_dot = 3x3cross(Cb2i_gyro,scew_sym)
     
     // DCM Attitude Estimates
 
