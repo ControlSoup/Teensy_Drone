@@ -3,13 +3,11 @@
 //Need Filter of some kind
 //Need aborts
 //////////////
-#include "math.cpp"
-#include "Strapdown.cpp"
+#include "Strapdown.hpp"
+#include "math.hpp"
 #include "PWM.hpp"
 #include "Wire.h"
 #include "Servo.h"
-#include "WireIMXRT.h"
-#include "WireKinetis.h"
 //IMU
 #include "I2Cdev.h"
 #include "MPU6050.h"
@@ -266,14 +264,16 @@ void state_loop(){
 void control_loop(){//seperate and only use needed argumented
   
   //DCM error  Cb2i_error = Cb2i_target * Cb2i^T
-  Cb2i_error = cross_3x3(Cb2i_target,transpose_3x3(Cb2i))
+  float Cb2i_transpose[3][3];
+  Cb2i_transpose = transpose_3x3(Cb2i,Cb2i_transpose);
+  Cb2i_error = cross_3x3(Cb2i_target,Cb2i_transpose);
   
   //DCM to Euler
   float euler;
   euler_error = dcm2euler(Cb2i_error);
-  pitch_error = euler_error[0]
-  roll_error = euler_error[1]
-  yaw_error = euler_error[2]
+  pitch_error = euler_error[0];
+  roll_error = euler_error[1];
+  yaw_error = euler_error[2];
   
   if (r_pitch >1800){
     pitch_error +=2*deg2rad;
@@ -358,7 +358,7 @@ void imu_update(){
     //scew_sym[2][2] =0;
     
     //DCM_rate from body to inertial frame 
-    Cb2i_dot = 3x3cross(Cb2i_gyro,scew_sym)
+    Cb2i_dot = 3x3cross(Cb2i_gyro,scew_sym,Cb2i_dot)
     
     // DCM Attitude Estimates
 
