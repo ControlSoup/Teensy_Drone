@@ -5,10 +5,10 @@
 
 
 //Useful Magic Numbers:
-float rad2deg = 57.2958;
-float deg2rad = 0.01745328;
-float standard_gravity = 9.80665; 
-float g2ms2 = standard_gravity;
+const float rad2deg = 57.2958;
+const float deg2rad = 0.01745328;
+const float standard_gravity = 9.80665; 
+const float g2ms2 = standard_gravity;
 
 
 //the result matrix is replaced with the cross product of a and b
@@ -141,7 +141,27 @@ void cross3x3x3x1 (float by3[3][3], float by1[3] , float result[3]){
   
 }
 
+
 void acc2intertial(float acc[4],float Cb2i[3][3],float acc_i[4]){
   //pg 4-10 Eq (4.2-1) 
   cross3x3x3x1(Cb2i,acc,acc_i);
+}
+
+
+//Complimentary filter (seriously not reccomended by paul......but i am not paul so go for it dude)
+void complimentaryfilter(float comp_gain,float gyro_dcm[3][3],float acc_dcm[3][3],float Cb2i[3][3]){
+  //get an attiude estimate by smashing a traingle into a square hole, not tottaly stupid but your half way there
+  
+  Cb2i[0][0] = (Cb2i_gyro[0][0]*comp_gain)+(Cb2i_acc[0][0]*(1-comp_gain));
+  Cb2i[1][0] = (Cb2i_gyro[1][0]*comp_gain)+(Cb2i_acc[1][0]*(1-comp_gain));
+  Cb2i[2][0] = (Cb2i_gyro[2][0]*comp_gain)+(Cb2i_acc[2][0]*(1-comp_gain));
+
+
+  Cb2i[0][1] = (Cb2i_gyro[0][1]*comp_gain)+(Cb2i_acc[0][1]*(1-comp_gain));
+  Cb2i[1][1] = (Cb2i_gyro[1][1]*comp_gain)+(Cb2i_acc[1][1]*(1-comp_gain));
+  Cb2i[2][1] = (Cb2i_gyro[2][1]*comp_gain)+(Cb2i_acc[2][1]*(1-comp_gain));
+
+  Cb2i[0][2] = (Cb2i_gyro[0][2]*comp_gain)+(Cb2i_acc[0][2]*(1-comp_gain));
+  Cb2i[1][2] = (Cb2i_gyro[1][2]*comp_gain)+(Cb2i_acc[1][2]*(1-comp_gain));
+  Cb2i[2][2] = (Cb2i_gyro[2][2]*comp_gain)+(Cb2i_acc[2][2]*(1-comp_gain));
 }
