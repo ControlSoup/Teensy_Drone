@@ -13,8 +13,8 @@ void allocation(float rc_ctrl[5],float pid_output[3],float motor_ouputs[4]){
   motor_ouputs[2] =throttle-pid_output[2]-pid_output[0]+pid_output[1];
   motor_ouputs[3] =throttle+pid_output[2]+pid_output[0]-pid_output[1];
   
-  if (motor_ouputs[0] < min_t) motor_ouputs[0] = min_throttle; //Keep the motors running.
-  if (motor_ouputs[1] < min_t) motor_ouputs[1] = min_throttle;                                         
-  if (motor_ouputs[2] < min_t) motor_ouputs[2] = min_throttle;                                         
-  if (motor_ouputs[3] < min_t) motor_ouputs[3] = min_throttle;  
+  if (motor_ouputs[0] < min_throttle) motor_ouputs[0] = min_throttle; //Keep the motors running.
+  if (motor_ouputs[1] < min_throttle) motor_ouputs[1] = min_throttle;                                         
+  if (motor_ouputs[2] < min_throttle) motor_ouputs[2] = min_throttle;                                         
+  if (motor_ouputs[3] < min_throttle) motor_ouputs[3] = min_throttle;  
 }

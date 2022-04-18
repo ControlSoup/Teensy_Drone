@@ -150,18 +150,18 @@ void acc2intertial(float acc[4],float Cb2i[3][3],float acc_i[4]){
 
 //Complimentary filter (seriously not reccomended by paul......but i am not paul so go for it dude)
 void complimentaryfilter(float comp_gain,float gyro_dcm[3][3],float acc_dcm[3][3],float Cb2i[3][3]){
-  //get an attiude estimate by smashing a traingle into a square hole, not tottaly stupid but your half way there
+  //get an attiude estimate by smashing a traingle into a square hole, not tottaly stupid but your only half way there
   
-  Cb2i[0][0] = (Cb2i_gyro[0][0]*comp_gain)+(Cb2i_acc[0][0]*(1-comp_gain));
-  Cb2i[1][0] = (Cb2i_gyro[1][0]*comp_gain)+(Cb2i_acc[1][0]*(1-comp_gain));
-  Cb2i[2][0] = (Cb2i_gyro[2][0]*comp_gain)+(Cb2i_acc[2][0]*(1-comp_gain));
+  Cb2i[0][0] = (gyro_dcm[0][0]*comp_gain)+(acc_dcm[0][0]*(1-comp_gain));
+  Cb2i[1][0] = (gyro_dcm[1][0]*comp_gain)+(acc_dcm[1][0]*(1-comp_gain));
+  Cb2i[2][0] = (gyro_dcm[2][0]*comp_gain)+(acc_dcm[2][0]*(1-comp_gain));
 
 
-  Cb2i[0][1] = (Cb2i_gyro[0][1]*comp_gain)+(Cb2i_acc[0][1]*(1-comp_gain));
-  Cb2i[1][1] = (Cb2i_gyro[1][1]*comp_gain)+(Cb2i_acc[1][1]*(1-comp_gain));
-  Cb2i[2][1] = (Cb2i_gyro[2][1]*comp_gain)+(Cb2i_acc[2][1]*(1-comp_gain));
+  Cb2i[0][1] = (gyro_dcm[0][1]*comp_gain)+(acc_dcm[0][1]*(1-comp_gain));
+  Cb2i[1][1] = (gyro_dcm[1][1]*comp_gain)+(acc_dcm[1][1]*(1-comp_gain));
+  Cb2i[2][1] = (gyro_dcm[2][1]*comp_gain)+(acc_dcm[2][1]*(1-comp_gain));
 
-  Cb2i[0][2] = (Cb2i_gyro[0][2]*comp_gain)+(Cb2i_acc[0][2]*(1-comp_gain));
-  Cb2i[1][2] = (Cb2i_gyro[1][2]*comp_gain)+(Cb2i_acc[1][2]*(1-comp_gain));
-  Cb2i[2][2] = (Cb2i_gyro[2][2]*comp_gain)+(Cb2i_acc[2][2]*(1-comp_gain));
+  Cb2i[0][2] = (gyro_dcm[0][2]*comp_gain)+(acc_dcm[0][2]*(1-comp_gain));
+  Cb2i[1][2] = (gyro_dcm[1][2]*comp_gain)+(acc_dcm[1][2]*(1-comp_gain));
+  Cb2i[2][2] = (gyro_dcm[2][2]*comp_gain)+(acc_dcm[2][2]*(1-comp_gain));
 }
