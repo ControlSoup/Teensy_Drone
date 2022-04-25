@@ -1,6 +1,6 @@
-////////////////////////////////
-//Main Loop
-///////////////////////////////
+/////////////
+//Main Loop//
+/////////////
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -8,10 +8,10 @@ void loop() {
   receiver_update();
   nav();  
   flight_stage();
-  m0.writeMicroseconds(motor_outputs[0]);
-  m1.writeMicroseconds(motor_outputs[1]);
-  m2.writeMicroseconds(motor_outputs[2]);
-  m3.writeMicroseconds(motor_outputs[3]);
+  m0.writeMicroseconds(motor_output[0]);
+  m1.writeMicroseconds(motor_output[1]);
+  m2.writeMicroseconds(motor_output[2]);
+  m3.writeMicroseconds(motor_output[3]);
   
 
   while(micros() - loop_timer < 4000); //Wait until the loop_timer reaches 4000us (250Hz) before starting the next loop  

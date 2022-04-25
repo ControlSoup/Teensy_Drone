@@ -1,3 +1,7 @@
+//////////////
+//Navigation//
+//////////////
+
 void nav(){
   gyro2dcm(gyro,Cb2i_gyro,dt);
   //sketchy comp filter  

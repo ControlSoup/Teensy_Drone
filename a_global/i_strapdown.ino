@@ -1,6 +1,8 @@
 // The following is a a set of functions based on Strapdown Analytics by Paul G. Savage
 //Notes:
-// All [3] arrays should really be 3x1 not 1x3 however i have chosen to use 3x1
+// All [3] arrays should really be 3x1 not 1x3 however I have chosen to use 3x1
+
+
 
 
 //the result matrix is replaced with the cross product of a and b
@@ -112,21 +114,6 @@ void dcm_error(float Cb2i_target[3][3],float Cb2i[3][3],float Cb2i_error[3][3]){
   cross3x3(Cb2i_target,Cb2i_T,Cb2i_error);
 }
 
-//NOT TESTED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-//the result matrix is replaced with the cross product of by3 andby1
-void cross3x3x3x1 (float by3[3][3], float by1[3] , float result[3]){
-  result[0] = (by3[0][0] * by1[0]) + (by3[0][1]*by1[1]) + (by3[0][2]*by1[2]);
-  result[1] = (by3[1][0] * by1[0]) + (by3[1][1]*by1[1]) + (by3[1][2]*by1[2]);
-  result[2] = (by3[2][0] * by1[0]) + (by3[2][1]*by1[1]) + (by3[2][2]*by1[2]);
-  
-}
-
-void acc2intertial(float acc[4],float Cb2i[3][3],float acc_i[4]){
-  //pg 4-10 Eq (4.2-1) 
-  cross3x3x3x1(Cb2i,acc,acc_i);
-}
-
 //Complimentary filter (seriously not reccomended by paul......but i am not paul so go for it dude)
 void complimentary_filter(float comp_gain,float gyro_dcm[3][3],float acc_dcm[3][3],float Cb2i[3][3]){
   //get an attiude estimate by smashing a traingle into a square hole, not tottaly stupid but your only half way there
@@ -142,4 +129,23 @@ void complimentary_filter(float comp_gain,float gyro_dcm[3][3],float acc_dcm[3][
   Cb2i[0][2] = (gyro_dcm[0][2]*comp_gain)+(acc_dcm[0][2]*(1-comp_gain));
   Cb2i[1][2] = (gyro_dcm[1][2]*comp_gain)+(acc_dcm[1][2]*(1-comp_gain));
   Cb2i[2][2] = (gyro_dcm[2][2]*comp_gain)+(acc_dcm[2][2]*(1-comp_gain));
+}
+
+
+//////////////
+//NOT TESTED// 
+//////////////
+
+
+//the result matrix is replaced with the cross product of by3 andby1
+void cross3x3x3x1 (float by3[3][3], float by1[3] , float result[3]){
+  result[0] = (by3[0][0] * by1[0]) + (by3[0][1]*by1[1]) + (by3[0][2]*by1[2]);
+  result[1] = (by3[1][0] * by1[0]) + (by3[1][1]*by1[1]) + (by3[1][2]*by1[2]);
+  result[2] = (by3[2][0] * by1[0]) + (by3[2][1]*by1[1]) + (by3[2][2]*by1[2]);
+  
+}
+
+void acc2intertial(float acc[4],float Cb2i[3][3],float acc_i[4]){
+  //pg 4-10 Eq (4.2-1) 
+  cross3x3x3x1(Cb2i,acc,acc_i);
 }

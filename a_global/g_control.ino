@@ -1,4 +1,8 @@
-void control(float Cb2i_target[3][3],float kp[3], float ki[3], float kd[3],float prev_i[3],float prev_error[3],float rc_ctrl[5],float pid_ouput[3]){
+///////////////
+//Control Law//
+///////////////
+
+void control(float Cb2i_target[3][3],float Cb2i[3][3],float kp[3], float ki[3], float kd[3],float prev_i[3],float prev_error[3],float rc_ctrl[5],float pid_output[3]){
 
   float Cb2i_error[3][3];
 
