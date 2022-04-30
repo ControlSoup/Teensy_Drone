@@ -12,6 +12,9 @@ void flight_stage(){
   }
 
   if (stageinflight ==0){ //idle
+    //reset 
+    s2=0;
+    s3=0;
     motor_output[0] = 0;
     motor_output[1] = 0;
     motor_output[2] = 0;
@@ -27,9 +30,17 @@ void flight_stage(){
     }
   }
   if (stageinflight ==1){ //Flight
+    
     s1=0;   
+    if (s2!=1){
+      test_number +=1;
+      s2=1;
+    }
     control(Cb2i_target,Cb2i,kp,ki,kd,prev_i,prev_error,rc_ctrl,pid_output);
     allocation(rc_ctrl,pid_output,motor_output);
+    if (record_data){
+      write_sd();
+    }
     //Led blink
     if ((millis()-prev_time_led)>led_timer_flight) digitalWrite(led,HIGH);
     if ((millis()-prev_time_led)>led_timer_flight*2){

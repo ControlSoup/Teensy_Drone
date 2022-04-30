@@ -11,6 +11,10 @@
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
     #include "Wire.h"
 #endif
+#include <SD.h>
+#include <SPI.h>
+
+
 
 MPU6050 mpu;
 
@@ -28,6 +32,16 @@ Servo m3;
 // Misc
 #define led 23
 
+
+//Sd Card
+bool record_data = true;
+const int chipSelect = BUILTIN_SDCARD;
+int test_number = 0;
+// set up variables using the SD utility library functions:
+Sd2Card card;
+SdVolume volume;
+SdFile root;
+
 //Variables
 //Magic Numbers
   const float rad2deg = 57.2958;
@@ -37,7 +51,7 @@ Servo m3;
   const float pi = 3.1415926;
   const float analog2voltage = (3.3 / 1023.0);
   //switches
-  int s1;
+  int s1,s2,s3;
   //Misc
   float batt_v;
   int stageinflight =0;
@@ -59,12 +73,16 @@ Servo m3;
   //Control Law
   float Cb2i_target[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
   float Cb2i_gyro[3][3];
-  float kp[3] = {90,90,200};
-  float ki[3] = {0.001,0.001,0.001};
-  float kd[3] = {0,0,0};
+  float kp[3] = {80,80,200};
+  float ki[3] = {0.01,0.01,0.01};  
+  float kd[3] = {1200,1200,0};
+  float p[3];
+  float i[3];
+  float d[3];
   float prev_i[3];
   float prev_error[3];
   float pid_output[3];
+  float euler_error[3];
 
     
 

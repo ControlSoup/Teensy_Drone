@@ -8,31 +8,31 @@ void control(float Cb2i_target[3][3],float Cb2i[3][3],float kp[3], float ki[3], 
 
   dcm_error(Cb2i_target,Cb2i,Cb2i_error);
   
-  float euler_error[3];
+  
   
   dcm2euler(Cb2i_error,euler_error);
-  
 
   //rc controller commands
   if (rc_ctrl[0] >1800){
-    euler_error[0] +=3*deg2rad;
+    euler_error[0] +=4*deg2rad;
   }
   if (rc_ctrl[0]<1300){
-    euler_error[0] -=3*deg2rad;
+    euler_error[0] -=4*deg2rad;
   }
   if (rc_ctrl[1] >1800){
-    euler_error[1] += 3*deg2rad;
+    euler_error[1] += 4*deg2rad;
   }
   if (rc_ctrl[1]<1300){
-    euler_error[1] -= 3*deg2rad;
+    euler_error[1] -= 4*deg2rad;
   }
 
  
   
   //Attitude Control Law
-  float p[3];
-  float i[3] = {prev_i[0],prev_i[1],prev_i[2]};
-  float d[3];
+
+  i[0] = prev_i[0];
+  i[1] = prev_i[1];
+  i[2] = prev_i[2];
   
   //pitch
     p[0]= kp[0]*euler_error[0];

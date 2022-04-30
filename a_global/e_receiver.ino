@@ -18,4 +18,5 @@ void receiver_update(){
   rc_ctrl[4] = ch5.getValue(); //switch
   if (rc_ctrl[4] < 1000) rc_ctrl[4] = 1000;
   if (rc_ctrl[4] > 2000) rc_ctrl[4] = 2000;
+ 
 }

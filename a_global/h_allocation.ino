@@ -19,7 +19,5 @@ void allocation(float rc_ctrl[5],float pid_output[3],float motor_ouput[4]){
   if (motor_ouput[2] < min_throttle) motor_ouput[2] = min_throttle;                                         
   if (motor_ouput[3] < min_throttle) motor_ouput[3] = min_throttle;  
 
-  Serial.print(motor_ouput[0]);
-  Serial.print(" ");
-  Serial.println(motor_ouput[1]);
+  
 }
