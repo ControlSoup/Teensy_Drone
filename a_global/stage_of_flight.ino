@@ -25,6 +25,9 @@ void flight_stage(){
       m2.writeMicroseconds(motor_output[2]);
       m3.writeMicroseconds(motor_output[3]);
       digitalWrite(led,LOW);
+      prev_i[0] = 0;
+      prev_i[1] = 1;
+      prev_i[2] = 2;
       imu_calibrate();
       s1=1;
     }
@@ -36,7 +39,7 @@ void flight_stage(){
       test_number +=1;
       s2=1;
     }
-    control(Cb2i_target,Cb2i,kp,ki,kd,prev_i,prev_error,rc_ctrl,pid_output);
+    control(Cb2i_target,Cb2i,kp,ki,kd,prev_i,prev_error,rc_ctrl,pid_output,euler_error);
     allocation(rc_ctrl,pid_output,motor_output);
     if (record_data){
       write_sd();
