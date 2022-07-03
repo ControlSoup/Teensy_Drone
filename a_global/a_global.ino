@@ -19,8 +19,8 @@
 MPU6050 mpu;
 
 // Reciever
-PWM ch1(36);
-PWM ch2(37);
+PWM ch1(37);
+PWM ch2(36);
 PWM ch3(33);
 PWM ch4(28);
 PWM ch5(29);
@@ -73,9 +73,9 @@ SdFile root;
   //Control Law
   float Cb2i_target[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
   float Cb2i_gyro[3][3];
-  float kp[3] = {170,170,270};
-  float ki[3] = {0.2,0.2,0.6};  
-  float kd[3] = {75,75,0};
+  float kp[3] = {80,80,200};
+  float ki[3] = {0.01,0.01,0.01};  
+  float kd[3] = {1200,1200,0};
   float p[3];
   float i[3];
   float d[3];

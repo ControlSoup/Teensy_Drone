@@ -34,8 +34,6 @@ void write_sd(){
     File dataFile = SD.open("flight_test.txt", FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile) {
-      dataFile.println("Start");
-      dataFile.println("["+String(kp[0])+","+String(kp[1])+","+String(kp[2])+"]"+"["+String(ki[0])+","+String(ki[1])+","+String(ki[2])+"]"+"["+String(kd[0])+","+String(kd[1])+","+String(kd[2])+"]");
       dataFile.println(dataString);
       dataFile.close();
     } else {
@@ -44,7 +42,7 @@ void write_sd(){
     s3=1;
   }
   else{
-    dataString += String(test_number)+", "+String(stageinflight)+", " + String(data_time,3) + ", " + String(acc[0],6)+", "+String(acc[1],6)+", "+String(acc[2],6)+", "+String(gyro[0]*rad2deg,6)+", "+String(gyro[1]*rad2deg,6)+", "+String(gyro[2]*rad2deg,6)+", "+String(euler_error[0]*rad2deg,6)+", "+String(euler_error[1]*rad2deg,6)+", "+String(euler_error[2]*rad2deg,6)+", "+String(pid_output[0],6)+", "+String(p[0],6)+","+String(i[0],6)+", "+String(d[0],6)+", "+String(pid_output[1],6)+", "+String(p[1],6)+","+String(i[1],6)+", "+String(d[1],6)+", "+String(pid_output[2],6)+", "+String(motor_output[0],6)+", "+String(motor_output[1],6)+", "+String(motor_output[2],6)+", "+String(motor_output[3],6);
+    dataString += String(test_number)+", "+String(stageinflight)+", " + String(data_time) + ", " + String(acc[0])+", "+String(acc[1])+", "+String(acc[2])+", "+String(gyro[0]*rad2deg)+", "+String(gyro[1]*rad2deg)+", "+String(gyro[2]*rad2deg)+", "+String(euler_error[0]*rad2deg)+", "+String(euler_error[1]*rad2deg)+", "+String(euler_error[2]*rad2deg)+", "+String(pid_output[0])+", "+String(p[0])+","+String(i[0])+", "+String(d[0])+", "+String(pid_output[1])+", "+String(p[1])+","+String(i[1])+", "+String(d[1])+", "+String(pid_output[2])+", "+String(motor_output[0])+", "+String(motor_output[1])+", "+String(motor_output[2])+", "+String(motor_output[3]);
     File dataFile = SD.open("flight_test.txt", FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile) {

@@ -55,21 +55,6 @@ void dcm2euler(float dcm[3][3],float result[3]){
   result[2] = yaw;
 }
 
-//the result matrix is replaced with a dcm equivalent of three euler angles
-void euler2dcm(float euler[3], float result[3][3]){
-  float pitch = euler[0];
-  float roll = euler[1];
-  float yaw = euler[2];
-  result[0][0] = cos(pitch)*cos(yaw);
-  result[0][1] = -cos(roll)*sin(yaw)+(sin(roll)*sin(pitch)*sin(yaw));
-  result[0][2] = sin(roll)*sin(yaw)+(cos(roll)*sin(pitch)*cos(yaw));
-  result[1][0] = cos(pitch)*sin(yaw);
-  result[1][1] = cos(roll)*cos(yaw)+(sin(roll)*sin(pitch)*sin(yaw));
-  result[1][2] = -sin(roll)*cos(yaw)+(cos(roll)*sin(pitch)*sin(yaw));
-  result[2][0] = -sin(pitch);
-  result[2][1] = sin(roll)*cos(pitch);
-  result[2][2] = cos(roll)*cos(pitch);
-}
 //takes a vector of gyro measurments (radians/s) and updates a dcm (Cb2i_gyro) with the current gyro integration
 void gyro2dcm(float gyro[3],float Cb2i_gyro[3][3], float dt){
     //scew symetric pg 3-52
