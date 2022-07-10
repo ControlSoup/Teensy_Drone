@@ -3,7 +3,7 @@
 /////////////
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  // Main Loop
   imu_update();
   receiver_update();
   nav();  
