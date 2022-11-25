@@ -6,7 +6,7 @@
 
 
 //the result matrix is replaced with the matrix multiplication of a and b
-void cross3x3(float a[3][3],float b[3][3], float result[3][3]){
+void matmul_3x3(float a[3][3],float b[3][3], float result[3][3]){
   result[0][0] = (a[0][0] * b[0][0]) + (a[0][1] * b[1][0]) + (a[0][2] * b[2][0]);
   result[1][0] = (a[1][0] * b[0][0]) + (a[1][1] * b[1][0]) + (a[1][2] * b[2][0]);
   result[2][0] = (a[2][0] * b[0][0]) + (a[2][1] * b[1][0]) + (a[2][2] * b[2][0]);
